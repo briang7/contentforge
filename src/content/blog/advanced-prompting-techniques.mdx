@@ -1,0 +1,170 @@
+---
+title: "Advanced Prompting Techniques for Claude Code"
+description: "Master CLAUDE.md files, context management, plan mode, and prompt engineering strategies to get better results from Claude Code CLI."
+pubDate: 2026-02-20
+category: best-practices
+tags: ["prompting", "claude-md", "best-practices", "context"]
+author: brian-garcia
+featured: false
+---
+
+The difference between a mediocre Claude Code experience and a great one often comes down to how you communicate your intent. Claude Code is remarkably capable, but it works best when you provide clear context, structured instructions, and well-scoped requests. This guide covers the techniques that consistently produce the best results.
+
+## Writing Effective CLAUDE.md Files
+
+The `CLAUDE.md` file is the single most impactful thing you can create for a project. It lives in your project root and is automatically read by Claude Code at the start of every session. Think of it as onboarding documentation for an AI pair programmer.
+
+A strong CLAUDE.md covers four areas: what the project is, how it is structured, how to build and test it, and what conventions to follow.
+
+```markdown
+# CLAUDE.md
+
+## Project Overview
+E-commerce platform built with Next.js 15 and Stripe.
+
+## Tech Stack
+- Next.js 15 (App Router, Server Components by default)
+- TypeScript in strict mode
+- Tailwind CSS 4
+- Prisma ORM with PostgreSQL
+- Stripe for payments
+
+## Build Commands
+- `npm run dev` - Start dev server on port 3000
+- `npm run build` - Production build
+- `npm test` - Run Vitest suite
+- `npm run db:push` - Push Prisma schema changes
+
+## Architecture
+- `/app` - Routes (file-system routing)
+- `/app/api` - API routes
+- `/lib` - Shared utilities and database client
+- `/components` - Reusable React components
+
+## Conventions
+- Use Server Components by default, `'use client'` only when needed
+- All database queries go through `/lib/db.ts`
+- Error handling: use Next.js error boundaries, never bare try/catch
+- Tests: colocate test files next to source (e.g., utils.test.ts)
+```
+
+The key is being specific. Instead of "we use React," say "React 19 with Server Components by default; add 'use client' only for interactive components." Instead of "run tests," specify the exact command and framework.
+
+## Project-Level vs User-Level Instructions
+
+Claude Code supports instructions at two levels, and understanding the distinction matters.
+
+**Project-level** instructions live in `CLAUDE.md` at the project root (or in `.claude/` directory). These are checked into version control and shared with your team. They describe project-specific context: architecture, conventions, build commands.
+
+**User-level** instructions live in `~/.claude/` and apply across all your projects. Use these for personal preferences that are not project-specific:
+
+```markdown
+# ~/.claude/CLAUDE.md
+
+## My Preferences
+- Always use TypeScript, never plain JavaScript
+- Prefer named exports over default exports
+- Use single quotes for strings
+- When writing tests, include edge cases and error scenarios
+- Explain your reasoning before making changes
+```
+
+When both exist, Claude Code reads the user-level instructions first, then the project-level instructions. Project-level instructions take precedence when there is a conflict, which is the correct behavior since project conventions should override personal preferences.
+
+## Context Management and /compact
+
+Claude Code maintains a conversation context that grows with each exchange. As your session gets longer, the context window fills up, which can degrade performance and increase latency. The `/compact` command is your primary tool for managing this.
+
+```bash
+# Inside a Claude Code session, type:
+/compact
+```
+
+This summarizes the entire conversation history into a condensed form, freeing up context space while preserving the essential information. Use `/compact` proactively:
+
+- After completing a major task before starting a new one
+- When you notice responses getting slower
+- Before switching to a different area of the codebase
+- After a long debugging session where much of the context is no longer relevant
+
+You can also provide a focus hint to guide what the summary retains:
+
+```bash
+/compact focus on the database migration changes
+```
+
+This tells Claude Code to prioritize retaining context about database migrations while being more aggressive about summarizing everything else.
+
+## Prompt Engineering for Code Tasks
+
+Effective prompts for Claude Code share a few characteristics: they are specific about the desired outcome, they reference concrete files or patterns, and they break large tasks into steps.
+
+**Bad prompt:**
+```
+Fix the authentication
+```
+
+**Good prompt:**
+```
+The login form in app/auth/login/page.tsx submits to the /api/auth/login
+route but returns a 401 even with correct credentials. Check the bcrypt
+comparison in the API route and verify the Prisma query is finding the
+user by email correctly.
+```
+
+**For new features, describe the desired behavior:**
+```
+Add a "forgot password" flow:
+1. New page at /auth/forgot-password with an email input
+2. API route /api/auth/forgot-password that generates a reset token,
+   stores it in the database with a 1-hour expiry, and logs the reset
+   link to the console (skip email sending for now)
+3. New page at /auth/reset-password/[token] that validates the token
+   and lets the user set a new password
+Follow the same patterns used in the existing auth pages.
+```
+
+Notice the last line: "Follow the same patterns used in the existing auth pages." This is a powerful technique. Instead of specifying every detail, point Claude Code at existing code that exemplifies your conventions.
+
+**For refactoring, be explicit about constraints:**
+```
+Refactor the ProductCard component to use the new design system tokens
+from lib/theme.ts. Keep the same props interface and don't change any
+test files - I want to verify the refactor doesn't break existing tests.
+```
+
+## Using Plan Mode Effectively
+
+Plan mode is activated by pressing **Shift+Tab** to toggle into plan mode, or by prefixing your message with "plan:" in some configurations. In plan mode, Claude Code analyzes your request and proposes a step-by-step implementation plan without making any changes. This is invaluable for complex tasks.
+
+Use plan mode when:
+
+- You are about to make significant architectural changes
+- You want to understand the scope of a change before committing to it
+- You are exploring multiple approaches and want to compare them
+- You want to review what files will be modified
+
+A good workflow is to start with plan mode, review the plan, adjust if needed, then execute:
+
+```
+> (plan mode) Add WebSocket support for real-time notifications
+
+Claude Code responds with a plan:
+1. Install ws and @types/ws
+2. Create lib/websocket.ts with connection manager
+3. Add /api/ws route handler
+4. Create useNotifications hook in hooks/
+5. Update NotificationBell component to use WebSocket
+6. Add reconnection logic with exponential backoff
+
+> That looks good, but use Socket.IO instead of raw ws for
+  better browser compatibility. Go ahead and implement it.
+```
+
+This two-step approach catches misunderstandings early, before any code is written.
+
+## Combining Techniques
+
+The most effective Claude Code users combine all of these techniques. They maintain a thorough CLAUDE.md, use `/compact` between tasks, write specific prompts that reference existing code, and use plan mode for anything non-trivial.
+
+Start by writing your CLAUDE.md today. Even a minimal one with your tech stack and build commands will immediately improve the quality of Claude Code's output. From there, practice writing more specific prompts and using plan mode for larger changes. These habits compound over time, and within a week you will notice a significant difference in your productivity.

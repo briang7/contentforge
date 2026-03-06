@@ -1,0 +1,183 @@
+---
+title: "Slash Commands and Daily Productivity in Claude Code"
+description: "Master Claude Code's built-in slash commands and learn workflow tips to get the most out of your daily coding sessions."
+pubDate: 2026-02-10
+category: tips-and-tricks
+tags: ["slash-commands", "productivity", "workflow", "tips"]
+author: brian-garcia
+featured: false
+---
+
+Claude Code's slash commands are the keyboard shortcuts of the AI-assisted development world. They give you quick access to session management, context control, and workflow utilities without breaking your flow. Mastering them is one of the fastest ways to become more productive with Claude Code. This post covers every built-in command, explains when to use each one, and shares workflow patterns for getting the most out of your daily sessions.
+
+## The Basics: Starting with Slash Commands
+
+In any Claude Code interactive session, type `/` to see a list of available commands. They all follow the same pattern: a forward slash, the command name, and optional arguments. Let's walk through the most important ones.
+
+### /help -- Your Quick Reference
+
+```
+/help
+```
+
+Displays a list of all available slash commands with brief descriptions. This is your go-to when you forget a command name. It also shows keyboard shortcuts for common actions like accepting edits or canceling a request.
+
+### /clear -- Fresh Start
+
+```
+/clear
+```
+
+Clears the entire conversation history from the current session. This is useful when you are switching to a completely different task and do not want the previous context influencing Claude's responses. Note that this does not affect your files or undo any changes -- it only resets the conversation.
+
+Use `/clear` when:
+- You are pivoting to an unrelated task in the same project
+- Claude seems confused by earlier context
+- You want to start a focused debugging session with a clean slate
+
+### /compact -- Intelligent Compression
+
+```
+/compact
+```
+
+This is one of the most valuable commands for long sessions. Instead of clearing everything, `/compact` asks Claude to summarize the conversation so far and replaces the full history with that summary. You keep the essential context while dramatically reducing token usage.
+
+```
+/compact focus on the authentication refactoring work
+```
+
+You can pass an optional message to guide the summarization. This is helpful when your session covered multiple topics and you want to keep context for just one of them.
+
+Use `/compact` when:
+- Your session is getting long and responses are slowing down
+- You have been exploring multiple approaches and want to focus on the chosen one
+- You want to reduce costs on long-running sessions
+
+### /cost -- Track Your Usage
+
+```
+/cost
+```
+
+Displays token usage and cost information for the current session. This shows you how many input and output tokens have been consumed and the estimated cost. Essential for staying aware of your API usage, especially when working on large codebases where context windows fill up quickly.
+
+A good habit is to run `/cost` periodically during long sessions, and use `/compact` when you see the numbers climbing.
+
+### /model -- Switch Models
+
+```
+/model
+```
+
+Lets you switch between available Claude models mid-session. This is useful when you want to use a faster model for simple tasks and a more capable model for complex reasoning:
+
+```
+/model claude-sonnet-4-20250514
+/model claude-opus-4-20250514
+```
+
+You might start a session with Sonnet for quick file exploration and code generation, then switch to Opus when you need deep architectural reasoning or complex refactoring.
+
+### /init -- Generate CLAUDE.md
+
+```
+/init
+```
+
+Analyzes your current project and generates a `CLAUDE.md` file with information about your tech stack, project structure, build commands, and conventions. If a `CLAUDE.md` already exists, Claude will update it based on the current state of the project.
+
+Run this when:
+- Setting up Claude Code in a new project for the first time
+- Your project has undergone significant structural changes
+- New team members are onboarding and you want up-to-date project context
+
+### /config -- Manage Settings
+
+```
+/config
+```
+
+Opens or displays your Claude Code configuration. You can view and modify settings without manually editing JSON files. This covers everything from MCP server configurations to permission settings.
+
+### /review -- Code Review Mode
+
+```
+/review
+```
+
+Puts Claude into code review mode, where it examines recent changes (typically your uncommitted git diff) and provides feedback on code quality, potential bugs, and improvements. This is a great command to run before committing:
+
+```bash
+# Make your changes, then:
+claude "/review"
+```
+
+Claude will look at your staged and unstaged changes and give you a thorough review.
+
+## Custom Slash Commands
+
+Beyond the built-in commands, Claude Code supports custom slash commands through the skills system. Custom commands are defined as markdown files in your project's `.claude/commands/` directory:
+
+```
+.claude/
+  commands/
+    deploy.md
+    test-suite.md
+    migration.md
+```
+
+Each file becomes a slash command named after the file. For example, `.claude/commands/deploy.md` becomes `/project:deploy`. The content of the markdown file is the prompt that gets sent to Claude when you invoke the command.
+
+Here is an example `.claude/commands/deploy.md`:
+
+```markdown
+Review the current git status and recent commits.
+Run the test suite and confirm all tests pass.
+Build the project for production.
+If everything succeeds, provide the deployment commands
+but do NOT execute them -- just show me what to run.
+```
+
+Now typing `/project:deploy` in a session executes this entire workflow. This is incredibly powerful for encoding repetitive multi-step processes that you run regularly.
+
+You can also create personal commands in `~/.claude/commands/` that are available across all projects. These show up with the `/user:` prefix.
+
+### Parameterized Commands
+
+Custom commands can accept arguments using the `$ARGUMENTS` placeholder:
+
+```markdown
+<!-- .claude/commands/review-file.md -->
+Review the file at $ARGUMENTS for:
+1. Type safety issues
+2. Error handling gaps
+3. Performance concerns
+4. Security vulnerabilities
+
+Provide specific line-number references for each issue found.
+```
+
+Usage:
+
+```
+/project:review-file src/api/auth.ts
+```
+
+## Daily Workflow Tips
+
+Here are patterns that maximize productivity across a typical development day:
+
+**Morning startup ritual.** Navigate to your project, run `claude`, and start with a broad question like "what changed since yesterday?" or "summarize the open TODOs in the codebase." This orients both you and Claude to the current state of things.
+
+**Task bracketing.** Use `/clear` between distinct tasks. If you spent 20 minutes debugging an API endpoint and now want to work on the frontend, clear the context so Claude is not still thinking about the backend.
+
+**Periodic compaction.** Every 30-45 minutes of active work, run `/compact` with a focus message. This keeps your session fast and cost-effective while preserving the important context.
+
+**Cost awareness.** Check `/cost` before and after large operations like "refactor all the API routes" or "add tests to every service file." This helps you develop intuition for which tasks are expensive and when compaction or clearing would be beneficial.
+
+**Pre-commit review.** Make it a habit to run `/review` before every commit. Catching issues before they hit version control saves time for everyone on the team.
+
+**Encode team knowledge in commands.** If your team has a deploy checklist, a migration process, or a PR review protocol, encode it as a custom slash command. This ensures consistency and saves everyone from remembering the steps.
+
+Slash commands are small tools, but used consistently they compound into significant productivity gains. Start by memorizing the core five -- `/help`, `/clear`, `/compact`, `/cost`, and `/init` -- and build from there as you discover patterns in your own workflow.

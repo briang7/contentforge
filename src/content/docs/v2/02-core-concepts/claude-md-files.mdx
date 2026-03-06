@@ -1,0 +1,193 @@
+---
+title: "CLAUDE.md Files"
+description: "Deep dive into CLAUDE.md file structure, scoping, and best practices for project context."
+section: "Core Concepts"
+order: 8
+version: "v2"
+---
+
+# CLAUDE.md Files
+
+CLAUDE.md is the most important configuration mechanism in Claude Code. It provides persistent, human-readable context that Claude reads at the start of every session. Think of it as a README written specifically for your AI coding assistant.
+
+## File Locations and Scoping
+
+Claude Code looks for CLAUDE.md files at multiple levels, each with a different scope:
+
+### Project Root (Repository Level)
+
+```
+my-project/
+  CLAUDE.md          <-- Read for all sessions in this project
+```
+
+This is the primary location. It should contain project-wide information: architecture, conventions, build commands, and technology decisions.
+
+### Subdirectory Level
+
+```
+my-project/
+  CLAUDE.md
+  packages/
+    api/
+      CLAUDE.md      <-- Read when working in packages/api/
+    web/
+      CLAUDE.md      <-- Read when working in packages/web/
+```
+
+Subdirectory CLAUDE.md files provide area-specific context. Claude reads them when it accesses files in that directory.
+
+### User Level (Global)
+
+```
+~/.claude/
+  CLAUDE.md          <-- Read for all projects, all sessions
+```
+
+User-level instructions apply across all projects. Use this for personal preferences.
+
+## File Structure
+
+A well-organized CLAUDE.md follows a consistent structure:
+
+```markdown
+# CLAUDE.md
+
+## Project Overview
+Brief description of what this project is and does.
+
+## Tech Stack
+- Framework, language, and major dependencies
+- Database and infrastructure
+- Deployment target
+
+## Build & Development Commands
+- `npm run dev` -- Development server
+- `npm run build` -- Production build
+- `npm test` -- Test suite
+- `npm run lint` -- Linter
+
+## Architecture
+Describe the directory structure and how code is organized.
+Explain patterns like repository pattern, service layer, etc.
+
+## Code Conventions
+- Naming conventions
+- File organization rules
+- Import ordering
+- Error handling patterns
+
+## Important Context
+Anything Claude cannot easily infer from reading code:
+- Non-obvious business rules
+- Historical decisions and their rationale
+- Known issues or workarounds
+- External service dependencies
+```
+
+## Real-World Example
+
+Here is a complete CLAUDE.md for a production SaaS application:
+
+```markdown
+# CLAUDE.md
+
+## Project: InvoiceTracker
+SaaS invoicing platform built with Next.js 14 (App Router),
+tRPC v11, Drizzle ORM, and PostgreSQL. Deployed on Vercel.
+
+## Commands
+- `pnpm dev` -- Start dev server (port 3000)
+- `pnpm build` -- Production build
+- `pnpm test` -- Run Vitest tests
+- `pnpm db:push` -- Push schema changes to database
+- `pnpm db:generate` -- Generate Drizzle migrations
+- `pnpm db:studio` -- Open Drizzle Studio
+
+## Architecture
+- `src/app/` -- Next.js pages (App Router)
+- `src/server/` -- tRPC routers and procedures
+- `src/server/db/` -- Drizzle schema and queries
+- `src/components/` -- React components (ui/ for primitives)
+- `src/lib/` -- Shared utilities and types
+- `src/emails/` -- React Email templates
+
+## Conventions
+- All tRPC procedures use Zod input validation
+- Database queries go in `src/server/db/queries/` not in routers
+- Use `cn()` from `src/lib/utils` for conditional classNames
+- Server components by default; add 'use client' only when needed
+- Prefer server actions over API routes for mutations
+- Error boundaries in `error.tsx` files per route segment
+
+## Authentication
+- NextAuth.js v5 with Google and email/password providers
+- Session strategy: JWT (not database sessions)
+- Auth middleware in `src/middleware.ts`
+- Protected routes check session in layout.tsx server component
+
+## Testing
+- Vitest for unit and integration tests
+- Tests go next to source files: `thing.ts` -> `thing.test.ts`
+- Use `createTestContext()` from `src/test/helpers` for DB tests
+- Mock external services with MSW in `src/test/mocks/`
+
+## Important Notes
+- Stripe webhooks must be idempotent (check event ID)
+- PDF generation uses @react-pdf/renderer (server-side only)
+- Multi-tenant: always filter by organizationId in queries
+- Rate limiting on public API routes via Upstash Redis
+```
+
+## Best Practices
+
+### Keep It Current
+Update CLAUDE.md when your project evolves. Outdated instructions are worse than no instructions because they mislead Claude.
+
+### Be Specific, Not Generic
+Focus on information that is unique to your project:
+
+```markdown
+<!-- Good: Project-specific guidance -->
+## Error Handling
+All API errors must extend AppError from src/lib/errors.ts.
+Never throw raw Error objects. Use the error codes defined
+in src/lib/error-codes.ts for consistency.
+
+<!-- Less useful: Generic advice -->
+## Error Handling
+Handle errors properly and use try/catch blocks.
+```
+
+### Include Non-Obvious Rules
+Document the "tribal knowledge" that a new developer would not know:
+
+```markdown
+## Gotchas
+- The `users` table uses `uuid` primary keys, but `invoices` uses `cuid2`
+- Never import from `@internal/` packages in the web app
+- The staging environment uses a shared database -- be careful with migrations
+- Feature flags are cached for 5 minutes -- changes are not instant
+```
+
+### Reference External Resources
+
+```markdown
+## External Docs
+- API design follows our internal style guide: /docs/api-style.md
+- Database naming conventions: /docs/db-conventions.md
+```
+
+### Keep It Under 1000 Lines
+Very long CLAUDE.md files consume context window space. If your file grows too large, split context into subdirectory CLAUDE.md files or link to separate documentation.
+
+## Checking Your CLAUDE.md
+
+Ask Claude to evaluate your CLAUDE.md:
+
+```
+> Review this project's CLAUDE.md and suggest improvements.
+  What important context is missing?
+```
+
+Claude can identify gaps by comparing what it finds in the codebase with what is documented.

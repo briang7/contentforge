@@ -1,0 +1,248 @@
+---
+title: "Using Claude Code in CI/CD Pipelines"
+description: "Automate code reviews, PR descriptions, and quality checks by integrating Claude Code into GitHub Actions and other CI/CD workflows."
+pubDate: 2026-02-25
+category: tutorials
+tags: ["ci-cd", "github-actions", "automation", "devops"]
+author: brian-garcia
+featured: false
+---
+
+Claude Code is not limited to interactive terminal sessions. Its headless mode makes it a powerful addition to CI/CD pipelines, enabling automated code reviews, PR description generation, test analysis, and more. This tutorial walks through setting up Claude Code in GitHub Actions, but the same principles apply to GitLab CI, CircleCI, and other platforms.
+
+## Headless Mode with the --print Flag
+
+The `--print` flag (or its shorthand `-p`) runs Claude Code in non-interactive mode. It reads the prompt, processes it against the current codebase, and prints the result to stdout. No interactive session, no approval prompts, no waiting for user input.
+
+```bash
+# Basic headless usage
+claude -p "Summarize the changes in this diff" < changes.diff
+
+# Pipe output to a file
+claude -p "Generate a changelog entry for these commits" > changelog.md
+
+# Use with specific context
+claude -p "Review this file for security issues" --file src/auth/handler.ts
+```
+
+The `--print` flag is the foundation of all CI/CD integrations. Combined with `--output-format json`, you can parse structured responses programmatically:
+
+```bash
+claude -p "List all TODO comments in the codebase as JSON" --output-format json
+```
+
+## Setting Up GitHub Actions
+
+Here is a complete GitHub Actions workflow that runs Claude Code on every pull request to generate an automated code review.
+
+```yaml
+# .github/workflows/claude-review.yml
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Get PR diff
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > pr_diff.txt
+
+      - name: Run Claude Code review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude -p "Review this pull request diff. Focus on:
+          1. Potential bugs or logic errors
+          2. Security concerns
+          3. Performance implications
+          4. Code style consistency
+
+          Be concise. Use markdown formatting. For each issue,
+          reference the file and line number.
+
+          $(cat pr_diff.txt)" > review.md
+
+      - name: Post review comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const review = fs.readFileSync('review.md', 'utf8');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## Claude Code Review\n\n${review}`
+            });
+```
+
+### Key Configuration Notes
+
+The `ANTHROPIC_API_KEY` must be stored as a GitHub repository secret. Navigate to **Settings > Secrets and variables > Actions** and add it there. Never hardcode API keys in workflow files.
+
+The `fetch-depth: 0` on the checkout step is critical. Without it, GitHub Actions performs a shallow clone and the `git diff` against the base branch will fail.
+
+## Automated PR Description Generation
+
+Another high-value use case is generating PR descriptions automatically. This saves time and ensures every PR has a meaningful summary.
+
+```yaml
+# .github/workflows/claude-pr-description.yml
+name: Generate PR Description
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  describe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Generate description
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # Get commit messages and diff stats
+          git log origin/${{ github.base_ref }}..HEAD \
+            --oneline > commits.txt
+          git diff origin/${{ github.base_ref }}...HEAD \
+            --stat > diffstat.txt
+          git diff origin/${{ github.base_ref }}...HEAD > full_diff.txt
+
+          claude -p "Generate a pull request description based on
+          these commits and changes. Use this format:
+
+          ## Summary
+          (2-3 sentences)
+
+          ## Changes
+          (bulleted list of key changes)
+
+          ## Testing
+          (suggested testing steps)
+
+          Commits:
+          $(cat commits.txt)
+
+          Diff stats:
+          $(cat diffstat.txt)
+
+          Full diff:
+          $(cat full_diff.txt)" > description.md
+
+      - name: Update PR description
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const desc = fs.readFileSync('description.md', 'utf8');
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              body: desc
+            });
+```
+
+## Automated Code Review Workflows
+
+Beyond simple diff reviews, you can build more sophisticated workflows that check for specific concerns.
+
+```yaml
+      - name: Security audit
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude -p "Analyze the following diff for security
+          vulnerabilities. Check for:
+          - SQL injection
+          - XSS vulnerabilities
+          - Hardcoded secrets or credentials
+          - Insecure deserialization
+          - Missing input validation
+          - Improper error handling that leaks information
+
+          If no issues are found, respond with 'No security
+          issues detected.' Otherwise, list each issue with
+          severity (HIGH/MEDIUM/LOW), file location, and
+          recommended fix.
+
+          $(cat pr_diff.txt)" > security_audit.md
+
+          # Fail the pipeline if HIGH severity issues found
+          if grep -q "HIGH" security_audit.md; then
+            echo "::error::High severity security issues found"
+            cat security_audit.md
+            exit 1
+          fi
+```
+
+This pattern of parsing Claude Code's output and taking action based on it is powerful. You can use it to enforce code quality gates, flag architectural violations, or check for compliance with team conventions.
+
+## Security Considerations
+
+Running Claude Code in CI/CD introduces several security concerns you must address.
+
+**API key management.** Always use encrypted secrets. Never log the API key or include it in artifacts. Rotate keys periodically and use separate keys for CI versus development.
+
+```yaml
+# Good: use repository secrets
+env:
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+# Bad: never do this
+env:
+  ANTHROPIC_API_KEY: sk-ant-xxxxx
+```
+
+**Input sanitization.** Be careful about what you pass to Claude Code in CI. PR titles, branch names, and commit messages are user-controlled inputs. A malicious contributor could craft a branch name that injects prompt content. Sanitize or limit what user-controlled data flows into prompts.
+
+**Cost control.** Each CI run consumes API tokens. Add safeguards to prevent runaway costs:
+
+```yaml
+      - name: Check diff size
+        run: |
+          DIFF_SIZE=$(wc -c < pr_diff.txt)
+          if [ "$DIFF_SIZE" -gt 100000 ]; then
+            echo "Diff too large for automated review"
+            exit 0
+          fi
+```
+
+**Permissions.** Follow the principle of least privilege. The GitHub token should only have the permissions it needs. The `permissions` block in the workflow examples above grants only `contents: read` and `pull-requests: write`, which is the minimum required.
+
+**Fork security.** By default, GitHub Actions triggered by PRs from forks do not have access to repository secrets. This is a good default. Do not override it by using `pull_request_target` unless you fully understand the security implications.
+
+## Going Further
+
+These patterns are starting points. Teams have built Claude Code CI integrations for generating migration guides, updating documentation when APIs change, creating test stubs for new code, and even triaging incoming issues. The `--print` flag makes Claude Code a flexible building block for any automation workflow where code understanding is valuable.
+
+Start with the basic PR review workflow, measure its value, and expand from there based on what your team needs most.

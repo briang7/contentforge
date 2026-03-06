@@ -1,0 +1,218 @@
+---
+title: "Context Management and Memory in Claude Code"
+description: "Deep dive into how Claude Code manages context windows, auto-compaction, memory files, and strategies for maintaining continuity across long sessions and multiple conversations."
+pubDate: 2026-02-28
+category: advanced
+tags: ["context", "memory", "claude-md", "sessions", "advanced"]
+author: brian-garcia
+featured: false
+---
+
+Claude Code operates within a finite context window. Every file you read, every command output, every message in the conversation consumes tokens from that window. When you hit the limit, the system compacts earlier messages into a summary. Understanding this mechanism — and designing your workflow around it — is the difference between productive multi-hour sessions and frustrating context loss.
+
+## How the Context Window Works
+
+When you start a Claude Code session, the context window fills with:
+
+1. **System instructions** — Claude Code's built-in capabilities and rules
+2. **CLAUDE.md files** — Project-level, user-level, and directory-level instructions
+3. **Memory files** — Persistent notes from `~/.claude/projects/`
+4. **Conversation history** — Your messages and Claude's responses
+5. **Tool results** — File contents, command output, search results
+
+As the conversation grows, older messages get compressed via **auto-compaction**. The system generates a summary of the compacted portion and continues with that summary plus recent messages. This is transparent — you'll see a note like `[Compacted: see full summary]` but the conversation continues seamlessly.
+
+## The Memory System
+
+Claude Code has a persistent memory layer stored in `~/.claude/projects/<project-hash>/memory/`. The `MEMORY.md` file in this directory is loaded into every conversation for that project.
+
+```markdown
+# MEMORY.md
+
+## Architecture Decisions
+- Using Drizzle ORM instead of Prisma (faster cold starts)
+- API routes use zod validation middleware
+- Auth: Lucia v3 with GitHub OAuth only
+
+## User Preferences
+- Always use bun, never npm
+- Prefer function components with hooks
+- Run tests after every code change
+```
+
+Memory files are updated automatically when Claude Code learns stable patterns across multiple sessions. You can also explicitly ask it to remember things:
+
+```
+"Always use bun instead of npm for this project — remember this"
+```
+
+This creates or updates a memory entry that persists across sessions.
+
+### Organizing Memory by Topic
+
+For complex projects, create topic-specific memory files and reference them from `MEMORY.md`:
+
+```
+~/.claude/projects/<hash>/memory/
+├── MEMORY.md          # Always loaded (keep under 200 lines)
+├── architecture.md    # Detailed architecture decisions
+├── debugging.md       # Known issues and solutions
+├── patterns.md        # Code patterns and conventions
+└── deployment.md      # Deployment procedures
+```
+
+Topic files are not auto-loaded but Claude Code can search them when relevant. Keep `MEMORY.md` as an index with brief summaries and links to detail files.
+
+## CLAUDE.md Hierarchy
+
+Claude Code reads `CLAUDE.md` files from multiple locations, in order of precedence:
+
+```
+~/.claude/CLAUDE.md                    # User-level (all projects)
+/project-root/CLAUDE.md               # Project-level (checked into git)
+/project-root/src/CLAUDE.md           # Directory-level (scoped)
+/project-root/src/api/CLAUDE.md       # Deeper directory-level
+```
+
+Each level adds context. Use this hierarchy strategically:
+
+**User-level** (`~/.claude/CLAUDE.md`): Global preferences that apply everywhere.
+
+```markdown
+## Preferences
+- Always use TypeScript strict mode
+- Prefer Bun over npm/yarn/pnpm
+- Never auto-commit without asking
+- Use conventional commits format
+```
+
+**Project-level** (`CLAUDE.md` in repo root): Project-specific architecture, commands, and conventions. This is checked into git so all team members benefit.
+
+```markdown
+## Build Commands
+- `bun dev` — Start development
+- `bun test` — Run Vitest
+- `bun db:push` — Push schema changes
+
+## Architecture
+- Hono API on /api/* routes
+- Drizzle ORM with PostgreSQL
+- React Server Components for pages
+```
+
+**Directory-level** (`src/api/CLAUDE.md`): Scoped context for specific parts of the codebase.
+
+```markdown
+## API Conventions
+- All endpoints return { data, error } shape
+- Use zod schemas from src/api/schemas/
+- Middleware chain: auth → validate → handler
+- Rate limiting on all public endpoints
+```
+
+## Strategies for Long Sessions
+
+### 1. Front-Load Context
+
+Put the most important information in `CLAUDE.md` rather than explaining it in conversation. Conversation messages get compacted; `CLAUDE.md` is always present.
+
+```markdown
+# Bad: Explaining in conversation every time
+"Remember, we use the repository pattern with a
+ base class in src/repos/base.ts"
+
+# Good: In CLAUDE.md, always available
+## Patterns
+- Repository pattern: all data access goes through
+  classes in src/repos/ extending BaseRepository
+```
+
+### 2. Checkpoint with Summaries
+
+When you've completed a major milestone in a long session, ask Claude Code to summarize the state:
+
+```
+"Summarize what we've accomplished so far and what's
+ remaining. Update the memory file if there are stable
+ decisions worth preserving."
+```
+
+This creates an explicit checkpoint that survives compaction.
+
+### 3. Use Plan Mode for Complex Tasks
+
+Plan mode (`/plan`) creates a structured plan file before implementation. This plan persists in the conversation and serves as a reference even after earlier messages are compacted.
+
+```
+/plan Add real-time notifications with WebSocket support
+```
+
+Claude Code will explore the codebase, design an approach, and present the plan for your approval before writing any code. The plan acts as a persistent context anchor.
+
+### 4. Scope Your Requests
+
+Broad requests consume more context because Claude Code reads more files and generates more output. Be specific:
+
+```bash
+# Bad: forces Claude to read everything
+"Review the entire codebase for security issues"
+
+# Good: focused scope, less context consumed
+"Review src/api/auth/ for SQL injection
+ and improper token validation"
+```
+
+### 5. Fresh Sessions for Fresh Context
+
+Sometimes the best strategy is starting a new session. Your `CLAUDE.md` and memory files provide continuity, so you don't lose project context. The new session gets a clean context window without accumulated conversation history.
+
+```
+# End of session 1:
+"Save our progress to memory: we've completed the
+ auth migration. Remaining: update tests and deploy."
+
+# Start of session 2 (clean context):
+"Continue the auth migration — check memory for status."
+```
+
+## Context Budget Estimation
+
+Rough token costs for common operations:
+
+| Operation | Approximate Tokens |
+|---|---|
+| Read a 200-line file | ~2,000 |
+| `npm test` output (passing) | ~500 |
+| `npm test` output (failures) | ~2,000–5,000 |
+| Git diff (medium PR) | ~3,000 |
+| Search results (10 files) | ~1,500 |
+| Your message (paragraph) | ~100 |
+| Claude's response (code + explanation) | ~1,000–3,000 |
+
+A typical context window holds ~200k tokens. A productive session with file reads, edits, and test runs can easily consume 50k–100k tokens before compaction kicks in.
+
+## The /compact Command
+
+You can manually trigger compaction with `/compact`. This is useful when:
+
+- You've accumulated a lot of exploratory file reads you no longer need
+- The conversation has gone through multiple debugging iterations
+- You want to "reset" the context while preserving key decisions
+
+```
+/compact
+```
+
+After compaction, Claude Code retains a summary of the full conversation plus your CLAUDE.md and memory files. It's like a controlled restart with preserved context.
+
+## Anti-Patterns
+
+**Don't paste entire files into messages.** Use Claude Code's file reading tools instead. Pasted content sits in the conversation and gets compacted less efficiently.
+
+**Don't repeat instructions that belong in CLAUDE.md.** If you find yourself saying "remember to use semicolons" or "always add error handling" in every session, put it in CLAUDE.md.
+
+**Don't fight compaction.** When you notice earlier context has been summarized, don't try to re-explain everything. Trust the summary and move forward. If something critical was lost, it should have been in CLAUDE.md or memory.
+
+**Don't use one session for everything.** A 4-hour session that builds a feature, fixes three bugs, writes docs, and refactors tests will have severe context degradation by the end. Break work into focused sessions of 30–60 minutes each.
+
+Context management isn't glamorous, but it's the single biggest factor in whether a Claude Code session feels productive or frustrating. Treat your CLAUDE.md like production code — maintain it, keep it accurate, and structure it for the audience that reads it.

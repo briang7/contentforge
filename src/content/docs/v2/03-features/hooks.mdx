@@ -1,0 +1,273 @@
+---
+title: "Hooks"
+description: "Configure lifecycle hooks to run custom logic before and after Claude Code actions."
+section: "Features"
+order: 10
+version: "v2"
+---
+
+# Hooks
+
+Hooks let you run custom commands at specific points in Claude Code's workflow. They are defined in your settings file and execute automatically when their trigger conditions are met, enabling logging, validation, notifications, and custom integrations.
+
+## Hook Types
+
+Claude Code supports four lifecycle hooks:
+
+### PreToolUse
+
+Runs **before** a tool is invoked. Use this to validate, log, or block tool actions.
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"About to run: $CLAUDE_TOOL_INPUT\" >> /tmp/claude-audit.log"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+If the hook command exits with a non-zero status, the tool invocation is **blocked**.
+
+### PostToolUse
+
+Runs **after** a tool completes. Use this for post-processing, notifications, or logging results.
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Notification
+
+Runs when Claude Code sends a notification (for example, when a long-running task completes).
+
+```json
+{
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "notify-send 'Claude Code' \"$CLAUDE_NOTIFICATION\""
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Stop
+
+Runs when Claude Code's agent loop finishes (Claude stops generating).
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Claude finished at $(date)' >> /tmp/claude-sessions.log"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## Configuration
+
+Hooks are defined in `.claude/settings.json` (project level) or `~/.claude/settings.json` (user level):
+
+```json
+{
+  "permissions": {
+    "allow": ["Read", "Glob", "Grep"]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "your-command-here"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "your-command-here"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Matcher Patterns
+
+The `matcher` field determines which tool invocations trigger the hook:
+
+| Matcher | Triggers On |
+|---|---|
+| `"Bash"` | All Bash tool invocations |
+| `"Write"` | All file write operations |
+| `"Edit"` | All file edit operations |
+| `"Read"` | All file read operations |
+| `""` (empty) | All tool invocations |
+
+## Environment Variables
+
+Hooks receive context through environment variables:
+
+| Variable | Description |
+|---|---|
+| `CLAUDE_TOOL_NAME` | Name of the tool being invoked |
+| `CLAUDE_TOOL_INPUT` | JSON string of the tool's input parameters |
+| `CLAUDE_FILE_PATH` | File path (for file-related tools) |
+| `CLAUDE_NOTIFICATION` | Notification message (for Notification hooks) |
+| `CLAUDE_SESSION_ID` | Current session identifier |
+
+## Practical Examples
+
+### Auto-Format on Write
+
+Automatically run Prettier whenever Claude writes or edits a file:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Audit Logging
+
+Log all shell commands for security review:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$(date -u +%Y-%m-%dT%H:%M:%SZ) | $CLAUDE_TOOL_INPUT\" >> ~/.claude/audit.log"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Desktop Notifications
+
+Get notified when Claude finishes a task:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "osascript -e 'display notification \"Task completed\" with title \"Claude Code\"'"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+(This example uses macOS `osascript`. For Linux, use `notify-send`. For Windows WSL, use `powershell.exe`.)
+
+### Block Dangerous Commands
+
+Prevent Claude from running destructive commands by returning a non-zero exit code:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_TOOL_INPUT\" | grep -qE '(rm -rf|drop table|truncate)' && exit 1 || exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## Tips
+
+- Hooks run synchronously -- long-running hooks will delay Claude's workflow
+- Use `|| true` at the end of non-critical hook commands to prevent failures from blocking work
+- Test hooks manually before adding them to settings to avoid unexpected behavior
+- Hook output is not fed back to Claude by default; they are side-effect only

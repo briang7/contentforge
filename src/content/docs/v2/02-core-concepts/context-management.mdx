@@ -1,0 +1,154 @@
+---
+title: "Context Management"
+description: "Learn how Claude Code manages project context through CLAUDE.md files, auto-memory, and more."
+section: "Core Concepts"
+order: 6
+version: "v2"
+---
+
+# Context Management
+
+Effective context management is the key to getting great results from Claude Code. This page covers the mechanisms Claude Code uses to understand your project and how to optimize them.
+
+## How Context Is Built
+
+When you start a session, Claude Code assembles context from multiple sources:
+
+1. **CLAUDE.md files** -- explicit project instructions and conventions
+2. **Auto-memory** -- facts Claude remembers across sessions
+3. **Codebase exploration** -- files Claude reads during the session
+4. **Conversation history** -- accumulated messages and tool results
+5. **System configuration** -- settings, permissions, and environment
+
+These layers combine to give Claude deep understanding of your project without requiring you to explain everything in each session.
+
+## CLAUDE.md Files
+
+CLAUDE.md files are the primary way to provide persistent project context. Claude Code reads these automatically at the start of every session.
+
+### Project-Level CLAUDE.md
+
+Place a `CLAUDE.md` file in your repository root:
+
+```markdown
+# CLAUDE.md
+
+## Project Overview
+This is a Next.js 14 e-commerce platform using the App Router,
+Prisma ORM with PostgreSQL, and Stripe for payments.
+
+## Build Commands
+- `npm run dev` -- Start development server on port 3000
+- `npm run build` -- Production build
+- `npm test` -- Run Vitest test suite
+- `npm run db:migrate` -- Run Prisma migrations
+
+## Code Conventions
+- Use TypeScript strict mode for all files
+- Prefer named exports over default exports
+- Use Zod for runtime validation on all API inputs
+- Follow the repository pattern in src/repositories/
+
+## Architecture
+- `src/app/` -- Next.js App Router pages and layouts
+- `src/components/` -- Shared React components
+- `src/lib/` -- Core business logic
+- `src/repositories/` -- Database access layer
+- `src/services/` -- Business logic orchestration
+```
+
+### User-Level CLAUDE.md
+
+For personal preferences that span all projects, use `~/.claude/CLAUDE.md`:
+
+```markdown
+# Personal Preferences
+- I prefer functional programming patterns
+- Use early returns to reduce nesting
+- Write concise commit messages (50 char subject line)
+- I use pnpm, not npm
+```
+
+### Subdirectory CLAUDE.md
+
+You can place additional CLAUDE.md files in subdirectories for area-specific context:
+
+```
+project/
+  CLAUDE.md                    # Project-wide context
+  src/
+    api/
+      CLAUDE.md                # API-specific conventions
+    components/
+      CLAUDE.md                # Component patterns
+```
+
+## Auto-Memory
+
+Claude Code automatically remembers important facts across sessions. When Claude learns something significant about your project or preferences, it stores it in memory.
+
+Memory is stored in `~/.claude/` and project-level `.claude/` directories. You can see what Claude has remembered and manage it:
+
+```
+> /memory
+```
+
+This displays current memory entries. Claude automatically updates memory when it discovers:
+
+- Build commands that work for your project
+- Testing patterns and frameworks
+- Code style preferences you express
+- Architecture decisions you make
+- Common issues and their solutions
+
+### Memory vs CLAUDE.md
+
+| Aspect | CLAUDE.md | Auto-Memory |
+|---|---|---|
+| Created by | You (manual) | Claude (automatic) |
+| Scope | Project or user level | Project or user level |
+| Best for | Stable conventions | Evolving learnings |
+| Version controlled | Yes (committed) | Optional |
+| Format | Markdown document | Structured entries |
+
+Use CLAUDE.md for things that rarely change (conventions, architecture). Let auto-memory handle things that evolve (discovered patterns, your preferences).
+
+## Optimizing Context
+
+### Keep CLAUDE.md Focused
+
+A concise, well-structured CLAUDE.md is more effective than a lengthy one. Focus on information Claude cannot easily discover by reading your code:
+
+```markdown
+## Good: Non-obvious conventions
+- API errors must use the ErrorResponse class from src/lib/errors.ts
+- All database queries go through repository classes, never direct Prisma calls
+- Feature flags are managed in LaunchDarkly, not environment variables
+
+## Less useful: Things Claude can see
+- We use React (obvious from package.json)
+- Components are in the components folder (obvious from structure)
+```
+
+### Use Directory-Specific Context
+
+For monorepos or large projects, provide targeted context where it matters:
+
+```markdown
+<!-- packages/api/CLAUDE.md -->
+# API Package
+This package uses Express with TypeScript.
+All routes must have OpenAPI annotations using @tsoa decorators.
+Error handling follows the middleware pattern in src/middleware/error.ts.
+```
+
+### Refresh Context Periodically
+
+As your project evolves, update your CLAUDE.md files:
+
+```
+> Review our CLAUDE.md and suggest updates based on
+  what you've learned about the project
+```
+
+Claude can help identify outdated information and suggest additions based on current codebase patterns.

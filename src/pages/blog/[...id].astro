@@ -1,0 +1,77 @@
+---
+import { getCollection, render } from 'astro:content';
+import BlogLayout from '@layouts/BlogLayout.astro';
+import Giscus from '@components/react/Giscus';
+import { getReadingTime } from '@utils/reading-time';
+import { generateArticleJsonLd } from '@utils/seo';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog', ({ data }) => !data.draft);
+  return posts.map((post) => ({
+    params: { id: post.id },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content, headings } = await render(post);
+const readingTime = getReadingTime(post.body);
+
+// Previous/Next posts
+const allPosts = await getCollection('blog', ({ data }) => !data.draft);
+const sorted = allPosts.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+const currentIndex = sorted.findIndex((p) => p.id === post.id);
+const prevPost = sorted[currentIndex + 1];
+const nextPost = sorted[currentIndex - 1];
+
+// Series posts
+let seriesData: { name: string; posts: { id: string; title: string; current: boolean }[] } | undefined;
+if (post.data.series) {
+  const seriesPosts = sorted
+    .filter((p) => p.data.series?.name === post.data.series!.name)
+    .sort((a, b) => (a.data.series?.order ?? 0) - (b.data.series?.order ?? 0));
+  seriesData = {
+    name: post.data.series.name,
+    posts: seriesPosts.map((p) => ({
+      id: p.id,
+      title: p.data.title,
+      current: p.id === post.id,
+    })),
+  };
+}
+
+// Get author name
+const authors = await getCollection('authors');
+const authorEntry = authors.find((a) => a.id === post.data.author);
+const authorName = authorEntry?.data.name || post.data.author;
+
+const jsonLd = generateArticleJsonLd({
+  title: post.data.title,
+  description: post.data.description,
+  url: Astro.url.href,
+  datePublished: post.data.pubDate.toISOString(),
+  dateModified: post.data.updatedDate?.toISOString(),
+  authorName,
+});
+---
+
+<BlogLayout
+  title={post.data.title}
+  description={post.data.description}
+  pubDate={post.data.pubDate}
+  updatedDate={post.data.updatedDate}
+  author={authorName}
+  readingTime={readingTime}
+  category={post.data.category}
+  tags={post.data.tags}
+  headings={headings}
+  prevPost={prevPost ? { id: prevPost.id, title: prevPost.data.title } : undefined}
+  nextPost={nextPost ? { id: nextPost.id, title: nextPost.data.title } : undefined}
+  series={seriesData}
+>
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={jsonLd} />
+  </Fragment>
+  <Content />
+  <Giscus client:only="react" />
+</BlogLayout>

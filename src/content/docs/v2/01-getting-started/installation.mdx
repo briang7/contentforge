@@ -1,0 +1,154 @@
+---
+title: "Installation"
+description: "Install Claude Code CLI, configure system requirements, and set up your API key."
+section: "Getting Started"
+order: 2
+version: "v2"
+---
+
+# Installation
+
+Claude Code runs as a global npm package on macOS, Linux, and Windows (via WSL or native). This guide walks you through installation, system requirements, and initial API key configuration.
+
+## System Requirements
+
+Before installing, ensure your system meets these requirements:
+
+- **Node.js** 18.0 or later (LTS recommended)
+- **npm** 8.0 or later (ships with Node.js)
+- **Git** 2.20 or later (for repository-aware features)
+- **Operating System**: macOS 12+, Ubuntu 20.04+ / Debian 11+, or Windows 10+ with WSL2
+
+Verify your environment:
+
+```bash
+node --version    # Should be v18.0.0 or later
+npm --version     # Should be 8.0.0 or later
+git --version     # Should be 2.20.0 or later
+```
+
+## Install Claude Code
+
+Install the CLI globally via npm:
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+Verify the installation succeeded:
+
+```bash
+claude --version
+```
+
+You should see output like `claude-code v1.x.x`.
+
+### Alternative: Install with Yarn or pnpm
+
+```bash
+# Using Yarn
+yarn global add @anthropic-ai/claude-code
+
+# Using pnpm
+pnpm add -g @anthropic-ai/claude-code
+```
+
+## API Key Setup
+
+Claude Code requires an Anthropic API key to communicate with Claude. You have several options for providing it.
+
+### Option 1: Interactive Login (Recommended)
+
+The first time you run `claude`, it will prompt you to authenticate:
+
+```bash
+claude
+# Follow the interactive login flow
+```
+
+This opens a browser window to authenticate with your Anthropic account and stores credentials securely.
+
+### Option 2: Environment Variable
+
+Set the `ANTHROPIC_API_KEY` environment variable:
+
+```bash
+# Add to your shell profile (~/.bashrc, ~/.zshrc, etc.)
+export ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+Then reload your shell:
+
+```bash
+source ~/.bashrc  # or source ~/.zshrc
+```
+
+### Option 3: Project-Level .env File
+
+Create a `.env` file in your project root:
+
+```bash
+# .env
+ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Make sure `.env` is listed in your `.gitignore` to avoid committing your key.
+
+## Verify Installation
+
+Run a quick test to confirm everything works:
+
+```bash
+# Start an interactive session
+claude
+
+# Or run a one-shot query
+claude -p "What version of Claude are you?"
+```
+
+If successful, Claude Code will respond with model information and be ready to assist.
+
+## Updating Claude Code
+
+Keep Claude Code up to date to get the latest features and fixes:
+
+```bash
+npm update -g @anthropic-ai/claude-code
+```
+
+To check which version you have:
+
+```bash
+claude --version
+```
+
+## Platform-Specific Notes
+
+### macOS
+No additional setup required. Claude Code works natively on both Intel and Apple Silicon Macs.
+
+### Linux
+Ensure you have a modern terminal emulator that supports ANSI escape codes. Most default terminals work fine.
+
+### Windows
+Claude Code is best used through **WSL2** (Windows Subsystem for Linux). Install WSL2 first, then install Node.js and Claude Code inside your WSL environment:
+
+```bash
+# Inside WSL2
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt-get install -y nodejs
+npm install -g @anthropic-ai/claude-code
+```
+
+Native Windows support via PowerShell and Git Bash is also available but may have limited functionality for certain shell operations.
+
+## Troubleshooting
+
+| Issue | Solution |
+|---|---|
+| `command not found: claude` | Ensure npm global bin is in your PATH |
+| Authentication failure | Re-run `claude` and follow the login flow |
+| Permission denied on install | Use `sudo npm install -g` or fix npm permissions |
+| Slow startup | Check network connectivity to Anthropic API |
+
+If you encounter issues not listed here, run `claude --help` or visit the [Anthropic documentation](https://docs.anthropic.com).

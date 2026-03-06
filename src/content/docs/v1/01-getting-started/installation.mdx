@@ -1,0 +1,94 @@
+---
+title: "Installation (v1)"
+description: "Install Claude Code v1 CLI and configure your API key."
+section: "Getting Started"
+order: 2
+version: "v1"
+---
+
+# Installation (v1)
+
+> **Note**: This is the documentation for Claude Code v1. For the latest installation instructions, see the [v2 Installation guide](/docs/v2/01-getting-started/installation).
+
+This guide covers installing Claude Code v1, setting up system requirements, and configuring your Anthropic API key.
+
+## System Requirements
+
+- **Node.js** 16.0 or later
+- **npm** 7.0 or later
+- **Git** 2.0 or later (recommended)
+- **Operating System**: macOS, Linux, or Windows with WSL
+
+```bash
+# Verify prerequisites
+node --version
+npm --version
+```
+
+## Installation
+
+Install Claude Code globally via npm:
+
+```bash
+npm install -g @anthropic-ai/claude-code@1
+```
+
+Verify the installation:
+
+```bash
+claude --version
+# Should output: claude-code v1.x.x
+```
+
+## API Key Configuration
+
+Claude Code v1 requires an Anthropic API key. Set it as an environment variable:
+
+```bash
+# Add to your shell profile (~/.bashrc, ~/.zshrc)
+export ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+Reload your shell configuration:
+
+```bash
+source ~/.bashrc  # or source ~/.zshrc
+```
+
+Alternatively, create a `.env` file in your project root:
+
+```bash
+# .env (add to .gitignore)
+ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+## Verify Setup
+
+Run a quick test:
+
+```bash
+claude -p "Hello, what model are you?"
+```
+
+If you see a response from Claude, your installation is complete.
+
+## v1 Configuration
+
+Claude Code v1 had limited configuration options compared to v2. The primary configuration was the API key and model selection:
+
+```bash
+# Set the model (v1 supported Claude 3 models)
+export CLAUDE_MODEL="claude-3-sonnet-20240229"
+```
+
+There were no settings files, permission allowlists, or CLAUDE.md support in v1. All configuration was done through environment variables.
+
+## Upgrading to v2
+
+To upgrade to the current version of Claude Code:
+
+```bash
+npm update -g @anthropic-ai/claude-code
+```
+
+The upgrade preserves your API key configuration and adds significant new features including CLAUDE.md support, permission management, MCP servers, and IDE integrations. See the [v2 documentation](/docs/v2/01-getting-started/introduction) for the full feature set.

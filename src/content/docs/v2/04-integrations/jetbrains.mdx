@@ -1,0 +1,185 @@
+---
+title: "JetBrains Integration"
+description: "Set up and use the Claude Code plugin in JetBrains IDEs like IntelliJ, WebStorm, and PyCharm."
+section: "Integrations"
+order: 14
+version: "v2"
+---
+
+# JetBrains Integration
+
+Claude Code is available as a plugin for JetBrains IDEs, including IntelliJ IDEA, WebStorm, PyCharm, GoLand, PhpStorm, and other JetBrains products. The plugin provides an embedded Claude Code experience with full access to the agentic coding workflow.
+
+## Supported IDEs
+
+The Claude Code plugin works with any JetBrains IDE version 2024.1 or later:
+
+- **IntelliJ IDEA** (Community and Ultimate)
+- **WebStorm**
+- **PyCharm** (Community and Professional)
+- **GoLand**
+- **PhpStorm**
+- **RubyMine**
+- **CLion**
+- **Rider**
+- **DataGrip**
+
+## Installation
+
+### From the JetBrains Marketplace
+
+1. Open your JetBrains IDE
+2. Go to **Settings** > **Plugins** (`Ctrl+Alt+S` then navigate to Plugins)
+3. Click the **Marketplace** tab
+4. Search for "Claude Code"
+5. Click **Install** and restart the IDE
+
+### Prerequisites
+
+- **JetBrains IDE** version 2024.1 or later
+- **Claude Code CLI** installed globally (`npm install -g @anthropic-ai/claude-code`)
+- A valid Anthropic API key
+
+## Getting Started
+
+After installation, access Claude Code through:
+
+- **Tool Window**: Click the Claude Code tab on the right sidebar
+- **Keyboard shortcut**: `Alt+C` (customizable)
+- **Action Search**: Press `Ctrl+Shift+A` and type "Claude Code"
+
+The Claude Code tool window opens a chat interface identical in functionality to the terminal CLI.
+
+## Key Features
+
+### IDE Context Integration
+
+The JetBrains plugin automatically provides Claude with:
+
+- **Current file** open in the editor
+- **Selected text** in the editor
+- **Project structure** from the IDE's project model
+- **Errors and warnings** from inspections and the build system
+- **Run/debug configuration** context
+- **VCS (Git) status** from the IDE's built-in VCS support
+
+### Editor Interactions
+
+Right-click on selected code to access Claude Code actions:
+
+```
+Right-click menu:
+  Claude Code >
+    Explain Selection
+    Refactor Selection
+    Generate Tests
+    Add Documentation
+    Ask about Selection...
+```
+
+Each action opens the Claude Code panel with the selected code as context and a pre-filled prompt.
+
+### Diff Viewer
+
+When Claude proposes file changes, the plugin uses JetBrains' built-in diff viewer:
+
+- Side-by-side diff display with syntax highlighting
+- Accept/reject per-change or per-file
+- Full undo support through IDE history
+
+### Terminal Integration
+
+Claude Code can run commands through the IDE's integrated terminal:
+
+```
+> Build the project and fix any compilation errors
+
+> Run the tests for the current module
+```
+
+Commands execute in the IDE terminal, and Claude reads the output.
+
+## Configuration
+
+### Plugin Settings
+
+Access Claude Code settings at **Settings** > **Tools** > **Claude Code**:
+
+| Setting | Description | Default |
+|---|---|---|
+| API Key | Your Anthropic API key | From CLI config |
+| Model | Default model | `claude-sonnet-4-20250514` |
+| Auto-approve reads | Skip prompts for read operations | `true` |
+| Terminal shell | Shell to use for commands | System default |
+
+### Key Bindings
+
+Customize shortcuts at **Settings** > **Keymap**, search for "Claude Code":
+
+| Default Shortcut | Action |
+|---|---|
+| `Alt+C` | Open Claude Code panel |
+| `Alt+Shift+C` | Send selection to Claude Code |
+| `Ctrl+Shift+Enter` | Submit message in Claude Code panel |
+
+## Working with JetBrains Features
+
+### Inspections and Quick Fixes
+
+When the IDE shows errors or warnings, you can ask Claude to fix them:
+
+```
+> Fix all the TypeScript errors in the current file
+
+> Resolve the deprecation warnings in this class
+```
+
+Claude reads the IDE diagnostics and applies fixes accordingly.
+
+### Refactoring Support
+
+Claude works alongside JetBrains' built-in refactoring tools:
+
+```
+> Extract the database logic from this controller into
+  a separate repository class
+
+> This class has too many responsibilities. Help me split
+  it following the Single Responsibility Principle.
+```
+
+### Run Configurations
+
+Claude can interact with your run/debug configurations:
+
+```
+> Run the "API Tests" configuration and summarize the results
+
+> What environment variables does the "Dev Server" configuration use?
+```
+
+## Multi-Module Projects
+
+For multi-module projects (Gradle, Maven, or monorepos), Claude Code understands the module structure. You can reference modules explicitly:
+
+```
+> Add a REST endpoint to the api module that calls
+  the service defined in the core module
+
+> The shared module's UserDTO needs a new field.
+  Update it and fix all usages across modules.
+```
+
+## Troubleshooting
+
+| Issue | Solution |
+|---|---|
+| Plugin not visible | Ensure IDE version is 2024.1+ and restart |
+| "CLI not found" | Install Claude Code CLI globally via npm |
+| Slow panel loading | Check IDE memory settings (Help > Change Memory Settings) |
+| Cannot authenticate | Verify API key in plugin settings or environment |
+| Terminal commands fail | Check terminal shell path in plugin settings |
+
+### Logs
+
+View plugin logs at **Help** > **Show Log in Explorer/Finder**, then search for "ClaudeCode" entries in the `idea.log` file.

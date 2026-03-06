@@ -1,0 +1,250 @@
+---
+title: "Terminal Usage"
+description: "Master Claude Code in the terminal with non-interactive mode, piping, and automation."
+section: "Integrations"
+order: 15
+version: "v2"
+---
+
+# Terminal Usage
+
+The terminal is Claude Code's native environment. Beyond interactive conversations, Claude Code supports non-interactive mode, input/output piping, and integration with shell scripts and CI/CD pipelines. This guide covers advanced terminal usage patterns.
+
+## Interactive Mode
+
+The default experience when you run `claude` without arguments:
+
+```bash
+cd ~/projects/my-app
+claude
+```
+
+This starts a REPL where you type messages and Claude responds. You can use slash commands, approve tool actions, and have multi-turn conversations.
+
+### Useful Flags for Interactive Mode
+
+```bash
+# Continue the last conversation
+claude --continue
+claude -c
+
+# Resume with conversation picker
+claude --resume
+claude -r
+
+# Start with a system prompt
+claude --system-prompt "You are a security-focused code reviewer"
+
+# Use a specific model
+claude --model claude-opus-4-20250514
+```
+
+## Non-Interactive Mode (Print Mode)
+
+Use the `-p` or `--print` flag to send a single prompt and get a response without entering the REPL:
+
+```bash
+# Ask a question
+claude -p "What framework does this project use?"
+
+# Generate code
+claude -p "Write a Python script that converts CSV to JSON" > convert.py
+
+# Analyze code
+claude -p "Review src/auth.ts for security vulnerabilities"
+```
+
+In print mode, Claude processes the request, outputs the result to stdout, and exits. This makes it ideal for scripting and automation.
+
+### Output Formatting
+
+```bash
+# Default: Human-readable output
+claude -p "List all API endpoints"
+
+# JSON output for programmatic parsing
+claude -p "List all API endpoints" --output-format json
+
+# Stream output as it generates
+claude -p "Explain this codebase" --stream
+```
+
+## Piping and Redirection
+
+Claude Code supports standard Unix piping, making it composable with other tools.
+
+### Piping Input
+
+```bash
+# Analyze a file
+cat src/utils.ts | claude -p "Find bugs in this code"
+
+# Process command output
+git diff | claude -p "Summarize these changes for a commit message"
+
+# Analyze logs
+tail -100 /var/log/app.log | claude -p "What errors are occurring?"
+
+# Process test output
+npm test 2>&1 | claude -p "Summarize the test results and any failures"
+```
+
+### Piping Output
+
+```bash
+# Generate code and save to file
+claude -p "Write a Dockerfile for a Node.js app" > Dockerfile
+
+# Generate and apply a patch
+claude -p "Add input validation to src/api/users.ts" | patch
+
+# Generate documentation
+claude -p "Generate API docs for src/routes/" > API_DOCS.md
+```
+
+### Chaining Commands
+
+```bash
+# Fix lint errors and commit
+claude -p "Fix all ESLint errors in src/" && git add -A && git commit -m "Fix lint errors"
+
+# Generate and run a migration
+claude -p "Write a SQL migration to add an email column to users" > migration.sql && psql -f migration.sql
+```
+
+## Shell Script Integration
+
+Use Claude Code within shell scripts for automation:
+
+```bash
+#!/bin/bash
+# auto-review.sh - Automated PR review
+
+PR_NUMBER=$1
+DIFF=$(gh pr diff "$PR_NUMBER")
+
+REVIEW=$(echo "$DIFF" | claude -p "Review this PR diff. List any bugs, security issues, or style problems. Format as markdown.")
+
+gh pr comment "$PR_NUMBER" --body "$REVIEW"
+```
+
+Another example for batch processing:
+
+```bash
+#!/bin/bash
+# generate-tests.sh - Generate tests for files without them
+
+for file in src/**/*.ts; do
+  test_file="${file%.ts}.test.ts"
+  if [ ! -f "$test_file" ]; then
+    echo "Generating tests for $file..."
+    claude -p "Write unit tests for $(cat "$file"). Use Vitest. Output only the test code." > "$test_file"
+  fi
+done
+```
+
+## CI/CD Integration
+
+Claude Code can be used in CI/CD pipelines for automated tasks:
+
+### GitHub Actions Example
+
+```yaml
+name: AI Code Review
+on: [pull_request]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - run: npm install -g @anthropic-ai/claude-code
+
+      - name: Review PR
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          DIFF=$(git diff origin/main...HEAD)
+          echo "$DIFF" | claude -p \
+            "Review this diff for bugs and security issues. Be concise." \
+            --dangerously-skip-permissions \
+            --output-format json > review.json
+```
+
+### Important: Permission Skipping in CI
+
+In automated environments, use `--dangerously-skip-permissions` to bypass interactive prompts:
+
+```bash
+claude --dangerously-skip-permissions -p "Run the test suite"
+```
+
+This flag is required for non-interactive pipelines since there is no human to approve tool actions.
+
+## Multi-Turn Scripting
+
+For tasks that require multiple turns, use `--continue` to maintain context:
+
+```bash
+# First: analyze the codebase
+claude -p "Analyze this project's architecture and identify areas for improvement"
+
+# Then: continue with a follow-up
+claude --continue -p "Now implement the first improvement you suggested"
+
+# Then: continue again
+claude --continue -p "Write tests for the changes you just made"
+```
+
+## Max Turns
+
+Limit the number of agentic turns Claude takes:
+
+```bash
+# Stop after 5 tool-use turns
+claude -p "Refactor the auth module" --max-turns 5
+```
+
+This is useful for controlling cost and runtime in automated pipelines.
+
+## Session Management
+
+```bash
+# List recent sessions
+claude sessions list
+
+# View a specific session
+claude sessions view <session-id>
+```
+
+## Tips for Terminal Power Users
+
+1. **Alias common patterns**: Add aliases to your shell profile:
+   ```bash
+   alias cr='claude -p "Review this code for issues:" <'
+   alias cfix='claude -p "Fix the bugs in this file:" <'
+   alias ctest='claude -p "Write tests for:" <'
+   ```
+
+2. **Use heredocs for complex prompts**:
+   ```bash
+   claude -p "$(cat <<'EOF'
+   Analyze this project and:
+   1. List all external API dependencies
+   2. Check for hardcoded credentials
+   3. Identify unused exports
+   EOF
+   )"
+   ```
+
+3. **Combine with `watch` for monitoring**:
+   ```bash
+   watch -n 60 'tail -20 /var/log/app.log | claude -p "Any critical errors?"'
+   ```

@@ -1,0 +1,277 @@
+---
+title: "Building Custom MCP Tools for Claude Code"
+description: "Create custom tools using the Model Context Protocol (MCP) to extend Claude Code with database queries, API testing, and project-specific capabilities."
+pubDate: 2026-03-01
+category: advanced
+tags: ["tools", "mcp", "typescript", "development"]
+author: brian-garcia
+featured: false
+---
+
+Claude Code ships with a powerful set of built-in tools for reading files, editing code, running commands, and searching codebases. But every project has unique needs. Maybe you want Claude Code to query your database directly, hit your staging API, or interact with an internal service. The Model Context Protocol (MCP) lets you build custom tools that extend Claude Code's capabilities to fit your exact workflow.
+
+## What Are Custom Tools?
+
+In the Claude Code context, a tool is a function that Claude can call during a conversation. Built-in tools include things like reading files, running bash commands, and performing grep searches. Custom tools follow the same pattern but are defined by you.
+
+When you register a custom MCP tool, Claude Code becomes aware of it and can invoke it when relevant. If you build a database query tool, for example, Claude Code will call it when you ask questions about your data, when it needs to verify a migration worked, or when debugging a query.
+
+Tools are defined using the Model Context Protocol, an open standard for connecting AI models to external data sources and capabilities. Each tool has a name, a description, an input schema, and a handler function that executes the actual logic.
+
+## Creating an MCP Server with TypeScript
+
+An MCP server is a lightweight process that exposes your custom tools. Here is a complete example of an MCP server that provides a database query tool and an API testing tool.
+
+Start by creating a new project for your tools:
+
+```bash
+mkdir my-claude-tools && cd my-claude-tools
+npm init -y
+npm install @modelcontextprotocol/sdk zod
+npm install -D typescript @types/node tsx
+```
+
+Create the MCP server entry point:
+
+```typescript
+// src/index.ts
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+
+const server = new McpServer({
+  name: "my-dev-tools",
+  version: "1.0.0",
+});
+
+// Tool definitions go here (see below)
+
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error("MCP server running on stdio");
+}
+
+main().catch(console.error);
+```
+
+The server uses stdio transport, which means it communicates with Claude Code through standard input and output. This is the simplest transport and works with all Claude Code configurations.
+
+## Example: Database Query Tool
+
+This tool lets Claude Code run read-only SQL queries against your development database. The `readonly` constraint is important for safety since you do not want Claude Code accidentally modifying data.
+
+```typescript
+// src/index.ts (add after server creation)
+import { Pool } from "pg";
+
+const pool = new Pool({
+  connectionString:
+    process.env.DATABASE_URL ||
+    "postgresql://localhost:5432/myapp_dev",
+});
+
+server.tool(
+  "query_database",
+  "Run a read-only SQL query against the development database. " +
+    "Use this to inspect data, verify migrations, debug issues, " +
+    "or understand the current state of the database. " +
+    "Only SELECT queries are allowed.",
+  {
+    sql: z
+      .string()
+      .describe("The SQL SELECT query to execute"),
+    params: z
+      .array(z.union([z.string(), z.number()]))
+      .optional()
+      .describe("Optional parameterized query values"),
+  },
+  async ({ sql, params }) => {
+    // Safety check: only allow SELECT queries
+    const normalized = sql.trim().toUpperCase();
+    if (!normalized.startsWith("SELECT")) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: "Error: Only SELECT queries are allowed.",
+          },
+        ],
+      };
+    }
+
+    try {
+      const result = await pool.query(sql, params || []);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(result.rows, null, 2),
+          },
+        ],
+      };
+    } catch (error: any) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Query error: ${error.message}`,
+          },
+        ],
+      };
+    }
+  }
+);
+```
+
+The description string is critical. Claude Code uses it to decide when to invoke the tool. Be specific about what the tool does and when it should be used.
+
+## Example: API Testing Tool
+
+This tool lets Claude Code make HTTP requests to your local or staging API, which is invaluable when debugging endpoints or verifying that code changes work correctly.
+
+```typescript
+server.tool(
+  "test_api",
+  "Make an HTTP request to the application API for testing. " +
+    "Use this to verify endpoints work correctly, check response " +
+    "formats, and debug API issues.",
+  {
+    method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
+    path: z
+      .string()
+      .describe("API path, e.g. /api/users/1"),
+    body: z
+      .record(z.unknown())
+      .optional()
+      .describe("Request body for POST/PUT/PATCH"),
+    headers: z
+      .record(z.string())
+      .optional()
+      .describe("Additional headers"),
+  },
+  async ({ method, path, body, headers }) => {
+    const baseUrl =
+      process.env.API_BASE_URL || "http://localhost:3000";
+    const url = `${baseUrl}${path}`;
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...headers,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+
+      const responseBody = await response.text();
+      let formattedBody: string;
+      try {
+        formattedBody = JSON.stringify(
+          JSON.parse(responseBody),
+          null,
+          2
+        );
+      } catch {
+        formattedBody = responseBody;
+      }
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: [
+              `${response.status} ${response.statusText}`,
+              `Headers: ${JSON.stringify(Object.fromEntries(response.headers), null, 2)}`,
+              `Body: ${formattedBody}`,
+            ].join("\n\n"),
+          },
+        ],
+      };
+    } catch (error: any) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Request failed: ${error.message}`,
+          },
+        ],
+      };
+    }
+  }
+);
+```
+
+## Tool Schemas and Validation
+
+The `zod` schemas you define for tool inputs serve double duty. First, they validate inputs at runtime, preventing malformed data from reaching your handler. Second, they are converted to JSON Schema and sent to Claude, which uses them to understand what parameters the tool accepts.
+
+Write descriptive `.describe()` calls on each field. These descriptions appear in the tool definition that Claude sees and directly influence how well it uses your tool:
+
+```typescript
+// Good: descriptive schema
+{
+  sql: z.string().describe(
+    "The SQL SELECT query to execute. Use $1, $2, etc. " +
+    "for parameterized values."
+  ),
+}
+
+// Bad: no description
+{
+  sql: z.string(),
+}
+```
+
+You can use complex schemas with nested objects, arrays, unions, and optional fields. Zod handles the conversion to JSON Schema automatically.
+
+## Registering Tools with Claude Code
+
+Once your MCP server is built, register it with Claude Code. There are two approaches: project-level configuration (shared with your team) and user-level configuration (personal tools).
+
+**Project-level** registration uses the `.mcp.json` file in your project root:
+
+```json
+{
+  "mcpServers": {
+    "my-dev-tools": {
+      "command": "npx",
+      "args": ["tsx", "./tools/src/index.ts"],
+      "env": {
+        "DATABASE_URL": "postgresql://localhost:5432/myapp_dev"
+      }
+    }
+  }
+}
+```
+
+**User-level** registration uses the Claude Code settings command:
+
+```bash
+claude mcp add my-dev-tools -- npx tsx /path/to/tools/src/index.ts
+```
+
+After registration, restart Claude Code or start a new session. You can verify your tools are loaded by asking Claude Code to list its available tools, or simply ask a question that would require your tool and see if it invokes it.
+
+## Testing Your Tools
+
+Before registering with Claude Code, test your MCP server independently using the MCP inspector:
+
+```bash
+npx @modelcontextprotocol/inspector npx tsx src/index.ts
+```
+
+This opens a web UI where you can browse your tools, see their schemas, and invoke them manually with test inputs. It is the fastest way to iterate on tool development.
+
+## Best Practices
+
+**Keep tools focused.** Each tool should do one thing well. Instead of a single "database" tool that handles queries, migrations, and schema inspection, create separate tools for each concern.
+
+**Make tools read-only by default.** Tools that modify state should require explicit confirmation or be gated behind an environment variable. This prevents accidental data loss during exploratory conversations.
+
+**Include error context.** When a tool fails, return a helpful error message that gives Claude Code enough context to suggest a fix or try a different approach.
+
+**Version your tool server.** Check your MCP server code into version control alongside your project. This ensures everyone on the team has the same tools available and tool behavior stays in sync with the codebase.
+
+Custom MCP tools turn Claude Code from a general-purpose assistant into a deeply integrated development partner that understands your specific infrastructure, data, and workflows. Start with one tool that addresses your biggest friction point and expand from there.

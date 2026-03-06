@@ -1,0 +1,372 @@
+---
+title: "Security Hardening and Permission Model in Claude Code"
+description: "Master Claude Code's permission system, sandbox modes, hook-based guardrails, and techniques for safe autonomous operation in production-adjacent environments."
+pubDate: 2026-02-15
+category: advanced
+tags: ["security", "permissions", "hooks", "sandbox", "advanced"]
+author: brian-garcia
+featured: false
+---
+
+Claude Code operates with real system access — it can read files, execute commands, make network requests, and modify your codebase. This power demands a well-configured permission model. Whether you're a solo developer running Claude Code on a personal project or a team lead deploying it across an organization, understanding the security model is essential.
+
+## The Permission System
+
+Claude Code uses a tiered permission model. Every tool call is evaluated against your permission settings before execution.
+
+### Permission Modes
+
+**Ask mode** (default for new users): Claude Code asks for approval before every tool call that modifies state. Read operations are allowed; writes, command execution, and network requests require explicit confirmation.
+
+**Auto-allow mode**: You approve categories of actions. For example, "allow all file reads and writes in `src/`" or "allow running `npm test` without asking." Commands outside the allowed set still require confirmation.
+
+**Yolo mode**: Everything is auto-approved. Convenient for trusted environments but dangerous in production-adjacent setups. Only use this in isolated development environments where you can afford to `git reset --hard`.
+
+Configure your permission mode in settings:
+
+```json
+// ~/.claude/settings.json
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit(src/**)",
+      "Write(src/**)",
+      "Bash(npm test)",
+      "Bash(npm run build)",
+      "Bash(npm run lint)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push --force*)",
+      "Bash(curl*)",
+      "Write(.env*)"
+    ]
+  }
+}
+```
+
+## Hook-Based Guardrails
+
+Hooks are shell commands that execute in response to Claude Code events. They're the most powerful mechanism for enforcing security policies because they run outside Claude Code's control — Claude cannot bypass them.
+
+### Pre-Command Hooks
+
+Block dangerous commands before they execute:
+
+```json
+// ~/.claude/settings.json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "command": "python3 ~/.claude/hooks/validate-command.py \"$TOOL_INPUT\""
+      }
+    ]
+  }
+}
+```
+
+```python
+# ~/.claude/hooks/validate-command.py
+import sys
+import json
+
+BLOCKED_PATTERNS = [
+    'rm -rf /',
+    'git push --force',
+    'DROP TABLE',
+    'DROP DATABASE',
+    'chmod 777',
+    'curl.*|.*sh',      # Pipe curl to shell
+    'wget.*|.*sh',
+    '> /etc/',
+    'dd if=',
+    'mkfs',
+    ':(){:|:&};:',      # Fork bomb
+]
+
+BLOCKED_COMMANDS = [
+    'shutdown', 'reboot', 'halt',
+    'systemctl stop', 'systemctl disable',
+    'kill -9 1',
+    'iptables -F',
+]
+
+def validate(tool_input: str) -> bool:
+    try:
+        data = json.loads(tool_input)
+        command = data.get('command', '')
+    except json.JSONDecodeError:
+        command = tool_input
+
+    cmd_lower = command.lower().strip()
+
+    for pattern in BLOCKED_PATTERNS:
+        if pattern in cmd_lower:
+            print(f"BLOCKED: Command matches dangerous pattern '{pattern}'")
+            return False
+
+    for blocked in BLOCKED_COMMANDS:
+        if cmd_lower.startswith(blocked):
+            print(f"BLOCKED: Command '{blocked}' is not allowed")
+            return False
+
+    return True
+
+if not validate(sys.argv[1] if len(sys.argv) > 1 else ''):
+    sys.exit(1)
+```
+
+### File Write Guards
+
+Prevent writes to sensitive locations:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "command": "python3 ~/.claude/hooks/validate-file-write.py \"$TOOL_INPUT\""
+      }
+    ]
+  }
+}
+```
+
+```python
+# ~/.claude/hooks/validate-file-write.py
+import sys
+import json
+import os
+
+PROTECTED_PATTERNS = [
+    '.env',
+    '.env.local',
+    '.env.production',
+    'credentials',
+    'secrets',
+    '.ssh/',
+    '.aws/',
+    'id_rsa',
+    'id_ed25519',
+    '.npmrc',     # May contain auth tokens
+    '.pypirc',
+    'docker-compose.prod',
+]
+
+PROTECTED_DIRS = [
+    '/etc/',
+    '/usr/',
+    '/var/',
+    os.path.expanduser('~/.ssh/'),
+    os.path.expanduser('~/.aws/'),
+]
+
+def validate(tool_input: str) -> bool:
+    try:
+        data = json.loads(tool_input)
+        file_path = data.get('file_path', '')
+    except json.JSONDecodeError:
+        file_path = tool_input
+
+    path_lower = file_path.lower()
+
+    for pattern in PROTECTED_PATTERNS:
+        if pattern in path_lower:
+            print(f"BLOCKED: Cannot write to protected file matching '{pattern}'")
+            return False
+
+    abs_path = os.path.abspath(file_path)
+    for protected_dir in PROTECTED_DIRS:
+        if abs_path.startswith(protected_dir):
+            print(f"BLOCKED: Cannot write to protected directory '{protected_dir}'")
+            return False
+
+    return True
+
+if not validate(sys.argv[1] if len(sys.argv) > 1 else ''):
+    sys.exit(1)
+```
+
+### Audit Logging
+
+Log all tool calls for review:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "command": "python3 ~/.claude/hooks/audit-log.py \"$TOOL_NAME\" \"$TOOL_INPUT\""
+      }
+    ]
+  }
+}
+```
+
+```python
+# ~/.claude/hooks/audit-log.py
+import sys
+import json
+from datetime import datetime
+
+LOG_FILE = os.path.expanduser('~/.claude/audit.log')
+
+def log_action(tool_name: str, tool_input: str):
+    entry = {
+        'timestamp': datetime.utcnow().isoformat(),
+        'tool': tool_name,
+        'input': tool_input[:500],  # Truncate large inputs
+    }
+
+    with open(LOG_FILE, 'a') as f:
+        f.write(json.dumps(entry) + '\n')
+
+log_action(
+    sys.argv[1] if len(sys.argv) > 1 else 'unknown',
+    sys.argv[2] if len(sys.argv) > 2 else ''
+)
+```
+
+## Secrets Management
+
+Claude Code should never have access to production secrets. But it frequently needs access to development credentials for databases, APIs, and services. The safe approach:
+
+### Use .env.example, Not .env
+
+```markdown
+# CLAUDE.md
+## Secrets
+- NEVER read, write, or commit .env files
+- Use .env.example as reference for required variables
+- Development database: localhost:5432/dev_db (no auth)
+- API keys: Use test/sandbox keys from .env.example
+```
+
+### Separate Development Credentials
+
+Create development-only credentials that are safe to expose:
+
+```bash
+# .env.development (safe — no real data access)
+DATABASE_URL=postgresql://dev:dev@localhost:5432/myapp_dev
+STRIPE_KEY=sk_test_fake_key_for_development
+API_SECRET=dev-secret-not-real
+```
+
+```bash
+# .env.production (NEVER let Claude Code see this)
+DATABASE_URL=postgresql://prod:real_password@db.example.com/myapp
+STRIPE_KEY=sk_live_real_key
+API_SECRET=production-secret-abc123
+```
+
+### Git Hooks for Secret Prevention
+
+Add a pre-commit hook that blocks secrets from being committed:
+
+```bash
+#!/bin/bash
+# .git/hooks/pre-commit
+
+# Check for potential secrets in staged files
+PATTERNS=(
+    'sk_live_'
+    'AKIA[A-Z0-9]{16}'  # AWS access keys
+    'password\s*=\s*["\x27][^"\x27]+'
+    'BEGIN RSA PRIVATE KEY'
+    'BEGIN OPENSSH PRIVATE KEY'
+)
+
+for pattern in "${PATTERNS[@]}"; do
+    if git diff --cached --diff-filter=ACM | grep -qiE "$pattern"; then
+        echo "ERROR: Potential secret detected in staged changes"
+        echo "Pattern: $pattern"
+        echo "Remove the secret and try again."
+        exit 1
+    fi
+done
+```
+
+## Sandbox Environments
+
+For maximum safety, run Claude Code inside a container or VM:
+
+### Docker-Based Sandbox
+
+```dockerfile
+# Dockerfile.claude-sandbox
+FROM node:22-slim
+
+RUN apt-get update && apt-get install -y git python3 && rm -rf /var/lib/apt/lists/*
+RUN npm install -g @anthropic-ai/claude-code
+
+# Create non-root user
+RUN useradd -m -s /bin/bash developer
+USER developer
+WORKDIR /home/developer/project
+
+# Mount project as volume at runtime
+# docker run -v $(pwd):/home/developer/project claude-sandbox
+```
+
+```bash
+docker build -t claude-sandbox -f Dockerfile.claude-sandbox .
+docker run -it \
+  -v $(pwd):/home/developer/project \
+  -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
+  --network=host \
+  claude-sandbox \
+  claude
+```
+
+This gives Claude Code access to your project files but isolates it from the rest of your system. It can't access `~/.ssh`, `~/.aws`, or any files outside the mounted volume.
+
+## Network Restrictions
+
+Control what Claude Code can access over the network:
+
+```json
+// ~/.claude/settings.json
+{
+  "permissions": {
+    "deny": [
+      "Bash(curl*)",
+      "Bash(wget*)",
+      "Bash(nc *)",
+      "Bash(ssh *)",
+      "Bash(scp *)"
+    ]
+  }
+}
+```
+
+For more granular control, use iptables or a network proxy:
+
+```bash
+# Allow only npm registry and GitHub
+iptables -A OUTPUT -p tcp -d registry.npmjs.org --dport 443 -j ACCEPT
+iptables -A OUTPUT -p tcp -d github.com --dport 443 -j ACCEPT
+iptables -A OUTPUT -p tcp -d api.anthropic.com --dport 443 -j ACCEPT
+iptables -A OUTPUT -p tcp --dport 443 -j DROP
+```
+
+## Team Deployment Checklist
+
+When deploying Claude Code across a team:
+
+1. **Shared CLAUDE.md** — Check it into the repo with explicit security boundaries
+2. **Hook-based guardrails** — Distribute validation hooks via a shared config repo
+3. **Permission presets** — Create team-standard `settings.json` with approved commands
+4. **Audit logging** — Centralized logging to track what Claude Code does across the team
+5. **Separate environments** — Never give Claude Code access to production databases or live APIs
+6. **Code review** — Treat AI-generated code with the same review rigor as human code
+7. **Rotate credentials** — If development keys are ever logged or exposed, rotate immediately
+
+Security isn't about preventing Claude Code from being useful — it's about channeling its capabilities through safe, auditable paths. A well-configured permission model lets you trust Claude Code with significant autonomy while maintaining the guardrails that prevent mistakes from becoming incidents.

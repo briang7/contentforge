@@ -1,0 +1,180 @@
+---
+title: "Tools and Permissions"
+description: "Understand the tools available to Claude Code and how the permission system works."
+section: "Core Concepts"
+order: 7
+version: "v2"
+---
+
+# Tools and Permissions
+
+Claude Code interacts with your development environment through a set of tools. Each tool has a specific purpose, and the permission system gives you control over which actions Claude can take without asking.
+
+## Available Tools
+
+Claude Code has access to the following built-in tools:
+
+### File Operations
+
+| Tool | Description |
+|---|---|
+| **Read** | Read file contents from disk |
+| **Write** | Create or overwrite a file |
+| **Edit** | Make targeted string replacements in a file |
+| **NotebookEdit** | Edit cells in Jupyter notebooks |
+| **Glob** | Search for files by name pattern |
+| **Grep** | Search file contents using regex |
+
+### Execution
+
+| Tool | Description |
+|---|---|
+| **Bash** | Execute shell commands (git, npm, make, etc.) |
+
+### Web and Search
+
+| Tool | Description |
+|---|---|
+| **WebFetch** | Fetch and analyze content from URLs |
+| **WebSearch** | Search the web for current information |
+
+### Workflow
+
+| Tool | Description |
+|---|---|
+| **Skill** | Execute registered skills (slash commands) |
+| **EnterWorktree** | Create an isolated git worktree |
+
+## How Permissions Work
+
+Every tool invocation goes through a permission check. Claude Code categorizes actions by risk level:
+
+### Low Risk (Often Auto-Approved)
+- Reading files (`Read`, `Glob`, `Grep`)
+- Viewing git status
+- Listing directory contents
+
+### Medium Risk (Prompted by Default)
+- Writing or editing files (`Write`, `Edit`)
+- Running build/test commands
+- Git operations (commit, branch)
+
+### High Risk (Always Prompted Unless Allowlisted)
+- Arbitrary shell commands
+- Destructive git operations
+- Network requests
+- File deletion
+
+## Permission Configuration
+
+### Allowlists
+
+Pre-approve specific tool patterns in your settings:
+
+```json
+// .claude/settings.json
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Bash(npm run build)",
+      "Bash(npm test)",
+      "Bash(npm run lint)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Write",
+      "Edit"
+    ]
+  }
+}
+```
+
+The allowlist supports glob patterns for Bash commands:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(git *)",
+      "Bash(npx prisma *)"
+    ]
+  }
+}
+```
+
+### Deny Lists
+
+Explicitly block dangerous patterns:
+
+```json
+{
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(sudo *)",
+      "Bash(curl * | bash)",
+      "Bash(> /dev/sda*)"
+    ]
+  }
+}
+```
+
+Deny rules take precedence over allow rules. If a command matches both an allow and a deny pattern, it will be denied.
+
+## Interactive Permission Prompts
+
+When Claude wants to use a tool that is not pre-approved, you see a prompt:
+
+```
+Claude wants to run: npm install lodash
+[y] Allow  [n] Deny  [a] Always allow  [d] Always deny
+```
+
+- **y (Allow)** -- Approve this specific invocation
+- **n (Deny)** -- Reject and provide feedback
+- **a (Always allow)** -- Add this pattern to the session allowlist
+- **d (Always deny)** -- Block this pattern for the session
+
+Choosing "Always allow" adds the pattern to your session, so the same command type will not prompt again. This does not persist across sessions -- use `settings.json` for permanent rules.
+
+## Bash Tool Specifics
+
+The Bash tool is the most powerful and most carefully controlled. Some important behaviors:
+
+```bash
+# Commands Claude can run through the Bash tool
+git status
+npm run build
+python script.py
+docker compose up -d
+```
+
+The Bash tool:
+- Has a default 2-minute timeout (configurable up to 10 minutes)
+- Does not preserve shell state (environment variables, working directory) between invocations
+- Supports background execution for long-running processes
+- Automatically prevents interactive commands (no `vim`, `nano`, `git rebase -i`)
+
+## Dangerous Skip Permissions
+
+For CI/CD and automation, you can bypass all permission checks:
+
+```bash
+claude --dangerously-skip-permissions -p "Run the test suite and report results"
+```
+
+This flag is intended for controlled, automated environments only. Never use it in interactive sessions with untrusted input.
+
+## Best Practices
+
+1. **Start restrictive, then loosen** -- Begin with default permissions and add allowlist entries as you identify safe patterns
+2. **Use project settings for teams** -- Commit `.claude/settings.json` so everyone shares the same safety rules
+3. **Deny dangerous patterns explicitly** -- Do not rely on the absence of an allow rule; explicitly deny destructive commands
+4. **Review before allowing** -- When Claude asks to run an unfamiliar command, read it carefully before approving
+5. **Separate CI/CD permissions** -- Use `--dangerously-skip-permissions` only in pipelines with controlled inputs

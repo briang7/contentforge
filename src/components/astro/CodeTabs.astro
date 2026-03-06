@@ -1,0 +1,53 @@
+---
+interface Props {
+  tabs: string[];
+}
+
+const { tabs } = Astro.props;
+const id = `codetabs-${Math.random().toString(36).slice(2, 9)}`;
+---
+
+<div class="code-tabs my-6 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden not-prose">
+  <div class="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+    {tabs.map((tab, i) => (
+      <>
+        <input
+          type="radio"
+          name={id}
+          id={`${id}-${i}`}
+          class="peer hidden"
+          checked={i === 0}
+        />
+        <label
+          for={`${id}-${i}`}
+          class="px-4 py-2 text-sm font-medium cursor-pointer text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-700 dark:hover:text-slate-300 peer-checked:text-brand-600 dark:peer-checked:text-brand-400 peer-checked:border-brand-600 dark:peer-checked:border-brand-400 transition-colors"
+        >
+          {tab}
+        </label>
+      </>
+    ))}
+  </div>
+  <div class="code-tabs-content">
+    <slot />
+  </div>
+</div>
+
+<style>
+  .code-tabs-content > :global(*) {
+    display: none;
+  }
+
+  /* Show the panel matching the checked radio */
+  .code-tabs:has(input:nth-of-type(1):checked) .code-tabs-content > :global(:nth-child(1)) {
+    display: block;
+  }
+  .code-tabs:has(input:nth-of-type(2):checked) .code-tabs-content > :global(:nth-child(2)) {
+    display: block;
+  }
+  .code-tabs:has(input:nth-of-type(3):checked) .code-tabs-content > :global(:nth-child(3)) {
+    display: block;
+  }
+  .code-tabs:has(input:nth-of-type(4):checked) .code-tabs-content > :global(:nth-child(4)) {
+    display: block;
+  }
+</style>

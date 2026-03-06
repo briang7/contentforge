@@ -1,0 +1,224 @@
+---
+title: "Slash Commands"
+description: "Complete reference for all Claude Code slash commands and their usage."
+section: "Features"
+order: 9
+version: "v2"
+---
+
+# Slash Commands
+
+Slash commands are shortcut actions you can invoke during a Claude Code session by typing `/` followed by the command name. They provide quick access to common operations without writing a full natural language request.
+
+## Available Commands
+
+### Session Management
+
+#### /compact
+
+Summarize the current conversation and free up context window space.
+
+```
+> /compact
+
+> /compact focus on the database migration changes
+```
+
+This creates a condensed summary of the conversation so far, preserving key decisions and changes while freeing up context for new work. You can optionally specify a focus topic to prioritize retaining certain context.
+
+#### /clear
+
+Clear the current conversation and start fresh.
+
+```
+> /clear
+```
+
+Unlike `/compact`, this does not create a summary. The session restarts with only your CLAUDE.md and system context.
+
+#### /resume
+
+Browse and resume a previous conversation.
+
+```
+> /resume
+```
+
+Displays a list of recent conversations with timestamps and summaries, allowing you to pick one to continue.
+
+### Information
+
+#### /help
+
+Display help information about Claude Code features and commands.
+
+```
+> /help
+
+> /help permissions
+```
+
+#### /status
+
+Show current session information including model, context usage, and permissions.
+
+```
+> /status
+```
+
+Outputs details like:
+- Active model name and version
+- Context window usage percentage
+- Current permission mode
+- Loaded CLAUDE.md files
+- Active MCP servers
+
+#### /memory
+
+View and manage Claude's auto-memory for this project.
+
+```
+> /memory
+```
+
+Shows entries Claude has remembered across sessions about your project and preferences.
+
+### Configuration
+
+#### /permissions
+
+View or modify permission settings for the current session.
+
+```
+> /permissions
+```
+
+Displays the current allowlist and denylist, and lets you add or remove entries interactively.
+
+#### /model
+
+Switch the Claude model used for the current session.
+
+```
+> /model claude-opus-4-20250514
+
+> /model claude-sonnet-4-20250514
+```
+
+#### /fast
+
+Toggle fast mode on or off. Fast mode uses the same model with faster output generation.
+
+```
+> /fast
+```
+
+### Development Workflows
+
+#### /commit
+
+Create a git commit for the current changes with an AI-generated message.
+
+```
+> /commit
+```
+
+Claude analyzes staged and unstaged changes, drafts a descriptive commit message, and creates the commit after your approval.
+
+#### /review-pr
+
+Review a pull request on GitHub.
+
+```
+> /review-pr 142
+
+> /review-pr https://github.com/org/repo/pull/142
+```
+
+Claude fetches the PR diff, analyzes the changes, and provides a detailed code review with suggestions.
+
+#### /pr
+
+Create a new pull request from the current branch.
+
+```
+> /pr
+```
+
+Claude examines all commits on the current branch, drafts a PR title and description, and creates the PR via the GitHub CLI.
+
+### File Operations
+
+#### /init
+
+Initialize a CLAUDE.md file for the current project.
+
+```
+> /init
+```
+
+Claude examines your project structure and generates an initial CLAUDE.md with detected conventions, build commands, and architecture notes.
+
+### Custom Slash Commands
+
+You can register custom slash commands through the hooks system or MCP servers. Custom commands appear alongside built-in commands when you type `/`.
+
+## Using Slash Commands
+
+### Basic Usage
+
+Type the command at the prompt:
+
+```
+> /compact
+```
+
+### With Arguments
+
+Some commands accept arguments after the command name:
+
+```
+> /model claude-opus-4-20250514
+
+> /compact focus on the API refactoring
+
+> /review-pr 87
+```
+
+### Combining with Natural Language
+
+You can use slash commands in the middle of a workflow:
+
+```
+> Add error handling to all the API routes
+
+[Claude makes changes across multiple files]
+
+> /compact
+
+> Now add tests for the error handling we just added
+```
+
+## Command Quick Reference
+
+| Command | Description | Arguments |
+|---|---|---|
+| `/compact` | Summarize and compress conversation | Optional focus topic |
+| `/clear` | Clear conversation history | None |
+| `/resume` | Resume a previous conversation | None |
+| `/help` | Show help information | Optional topic |
+| `/status` | Show session status | None |
+| `/memory` | View auto-memory | None |
+| `/permissions` | View/edit permissions | None |
+| `/model` | Switch model | Model name |
+| `/fast` | Toggle fast mode | None |
+| `/commit` | Create git commit | None |
+| `/review-pr` | Review a pull request | PR number or URL |
+| `/pr` | Create a pull request | None |
+| `/init` | Initialize CLAUDE.md | None |
+
+## Tips
+
+- Slash commands are case-insensitive: `/Compact` works the same as `/compact`
+- You can discover all available commands by typing `/` and viewing the autocomplete list
+- Custom skills registered via MCP servers or hooks also appear as slash commands

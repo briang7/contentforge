@@ -1,0 +1,70 @@
+---
+title: "Introduction to Claude Code"
+description: "Learn what Claude Code is, its key capabilities, and who it's designed for."
+section: "Getting Started"
+order: 1
+version: "v2"
+---
+
+# Introduction to Claude Code
+
+Claude Code is an agentic coding assistant built by Anthropic that lives directly in your terminal. Unlike traditional AI chat interfaces, Claude Code operates as a full-featured development partner that can read, write, and execute code in your project, run shell commands, search across your codebase, and manage complex multi-step development tasks -- all through natural language conversation.
+
+## What Is Claude Code?
+
+At its core, Claude Code is a CLI tool powered by Claude (Anthropic's AI model) that understands your entire project context. When you launch it in a repository, it can:
+
+- **Read and navigate** your codebase to understand architecture and patterns
+- **Write and edit** files with precise, contextual changes
+- **Execute commands** like builds, tests, linters, and deployments
+- **Search** across large codebases using grep, glob, and AST-aware tools
+- **Manage git** operations including commits, branches, and pull requests
+- **Interact with GitHub** through the `gh` CLI for issues, PRs, and reviews
+
+```bash
+# Start a conversation in your project directory
+cd my-project
+claude
+
+# Or run a one-shot command
+claude -p "Explain the authentication flow in this codebase"
+```
+
+## Key Capabilities
+
+### Agentic Workflow
+Claude Code does not just suggest code snippets. It takes actions. When you ask it to fix a bug, it reads the relevant files, understands the problem, writes the fix, and can even run your test suite to verify the change works.
+
+### Full Project Context
+Through `CLAUDE.md` files, auto-memory, and intelligent context management, Claude Code maintains deep understanding of your project's conventions, architecture, and requirements across sessions.
+
+### Tool Use
+Claude Code has access to a set of tools -- file reading, editing, shell execution, web search, and more. It selects the right tool for each step and chains them together to complete complex tasks.
+
+### Safety and Permissions
+Every potentially destructive action requires your approval. You can configure permission levels from strict (approve everything) to permissive (auto-approve safe operations), with fine-grained allowlists for specific commands.
+
+## Who Is Claude Code For?
+
+Claude Code is designed for **professional developers** who want an AI assistant integrated into their existing workflow:
+
+- **Individual developers** working on personal or open source projects who want to move faster
+- **Teams** that want consistent code quality, automated PR reviews, and faster onboarding
+- **DevOps engineers** who need help with infrastructure, CI/CD, and deployment scripts
+- **Full-stack developers** jumping between frontend, backend, and infrastructure code
+
+Whether you are building a new feature, debugging a production issue, refactoring legacy code, or writing documentation, Claude Code acts as a knowledgeable pair programmer that understands your specific codebase.
+
+## How It Differs from Chat-Based AI
+
+| Feature | Chat AI | Claude Code |
+|---|---|---|
+| File access | Copy/paste snippets | Reads/writes directly |
+| Command execution | Suggests commands | Runs them with approval |
+| Project context | Limited to conversation | Full codebase awareness |
+| Multi-step tasks | Manual orchestration | Autonomous agent loop |
+| Git integration | None | Built-in commits, PRs |
+
+## Getting Started
+
+Ready to try Claude Code? Head to the [Installation](/docs/v2/01-getting-started/installation) guide to set up your environment, then follow the [Quick Start](/docs/v2/01-getting-started/quick-start) to complete your first task.

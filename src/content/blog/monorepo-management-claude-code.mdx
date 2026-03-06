@@ -1,0 +1,307 @@
+---
+title: "Managing Monorepos with Claude Code"
+description: "Strategies for using Claude Code in Nx, Turborepo, and pnpm workspace monorepos. Covers scoped CLAUDE.md files, cross-package refactors, dependency graph awareness, and build optimization."
+pubDate: 2026-02-10
+category: integrations
+tags: ["monorepo", "nx", "turborepo", "pnpm", "workspace"]
+author: brian-garcia
+featured: false
+---
+
+Monorepos amplify both the power and complexity of Claude Code. A single session has access to your entire codebase — frontend, backend, shared libraries, infrastructure — which means cross-cutting changes that would require coordinating across multiple repos happen in one conversation. But the scale also means context management, file navigation, and build awareness become critical.
+
+## Setting Up CLAUDE.md for Monorepos
+
+The directory-level CLAUDE.md hierarchy is designed for monorepos. Place files at each level to give Claude Code the right context depending on where it's working.
+
+```
+monorepo/
+├── CLAUDE.md                    # Root: overall architecture
+├── packages/
+│   ├── CLAUDE.md                # Shared: package conventions
+│   ├── ui/
+│   │   ├── CLAUDE.md            # UI library specifics
+│   │   └── src/
+│   ├── api-client/
+│   │   ├── CLAUDE.md            # API client specifics
+│   │   └── src/
+│   └── shared-types/
+│       └── src/
+├── apps/
+│   ├── web/
+│   │   ├── CLAUDE.md            # Web app specifics
+│   │   └── src/
+│   ├── mobile/
+│   │   ├── CLAUDE.md            # Mobile app specifics
+│   │   └── src/
+│   └── api/
+│       ├── CLAUDE.md            # API server specifics
+│       └── src/
+└── infra/
+    ├── CLAUDE.md                # Infrastructure specifics
+    └── terraform/
+```
+
+### Root CLAUDE.md
+
+```markdown
+# CLAUDE.md
+
+## Monorepo Structure
+This is a pnpm workspace monorepo managed by Turborepo.
+
+### Packages
+- `packages/ui` — Shared React component library (shadcn/ui base)
+- `packages/api-client` — Type-safe API client (generated from OpenAPI)
+- `packages/shared-types` — TypeScript types shared across apps
+
+### Apps
+- `apps/web` — Next.js 15 customer-facing website
+- `apps/mobile` — React Native (Expo) mobile app
+- `apps/api` — Hono API server with Drizzle ORM
+
+### Build Commands
+- `pnpm dev` — Start all apps in dev mode
+- `pnpm build` — Build all packages and apps (topological)
+- `pnpm test` — Run all tests
+- `pnpm lint` — Lint all packages
+- `pnpm -F web dev` — Start only the web app
+- `pnpm -F api test` — Test only the API
+
+### Dependency Graph
+shared-types → api-client → web, mobile
+shared-types → ui → web, mobile
+shared-types → api
+
+### Conventions
+- All packages use TypeScript strict mode
+- All packages export from index.ts barrel file
+- Inter-package imports use workspace protocol: "workspace:*"
+- Changes to shared-types must be backward compatible
+```
+
+### Package-Level CLAUDE.md
+
+```markdown
+# packages/ui/CLAUDE.md
+
+## UI Component Library
+React component library built on shadcn/ui primitives.
+
+### Structure
+- src/components/ — Individual components (Button, Card, Dialog...)
+- src/hooks/ — Shared hooks (useMediaQuery, useDebounce...)
+- src/utils/ — Utility functions (cn, variants)
+
+### Adding a Component
+1. Create src/components/ComponentName/
+2. Add ComponentName.tsx, ComponentName.stories.tsx, index.ts
+3. Export from src/index.ts
+4. Components must accept className prop for customization
+5. Use cva() for variant definitions
+
+### Testing
+- `pnpm -F ui test` — Run component tests
+- `pnpm -F ui storybook` — Start Storybook
+```
+
+## Cross-Package Refactors
+
+This is where monorepo + Claude Code really shines. A type change in `shared-types` can be propagated to every consumer in a single session:
+
+```bash
+claude "Rename the 'User' type to 'Account' across the
+       entire monorepo. This includes:
+       1. packages/shared-types/src/models/user.ts → account.ts
+       2. Update all imports in packages/api-client
+       3. Update all imports in apps/web
+       4. Update all imports in apps/mobile
+       5. Update all imports in apps/api
+       6. Update database schema references in apps/api
+       7. Update all test files
+
+       After renaming, run 'pnpm typecheck' to verify
+       no type errors remain."
+```
+
+Claude Code will trace the dependency graph, find every import, and update them all — something that would take a human developer significant time to do safely across multiple packages.
+
+## Dependency-Aware Operations
+
+### Adding a Shared Dependency
+
+```bash
+claude "Add zod validation to the API.
+       - Add zod to packages/shared-types as a dependency
+       - Create validation schemas for all types in shared-types
+       - Export validators alongside types
+       - Update apps/api to use validators in route handlers
+       - Update packages/api-client to validate responses
+
+       Use pnpm workspace protocol for inter-package deps."
+```
+
+### Upgrading Across Packages
+
+```bash
+claude "Upgrade React from 18 to 19 across the monorepo.
+       - Update packages/ui (component library)
+       - Update apps/web (Next.js — check Next.js React 19 guide)
+       - Update apps/mobile (Expo — check Expo React 19 support)
+       - Update all @types/react packages
+       - Fix any breaking changes (ref callbacks, useRef defaults)
+       - Run typecheck and tests for each package after upgrading"
+```
+
+## Turborepo-Aware Workflows
+
+Claude Code can leverage Turborepo's task pipeline:
+
+```bash
+claude "I've made changes to packages/shared-types.
+       Run 'turbo build --filter=shared-types...' to
+       build only affected packages. If anything fails,
+       fix the issue and rebuild."
+```
+
+The `--filter=shared-types...` syntax tells Turborepo to build `shared-types` and everything that depends on it — exactly the packages affected by your change.
+
+### Task Configuration
+
+```json
+// turbo.json
+{
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "test": {
+      "dependsOn": ["build"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    }
+  }
+}
+```
+
+Teach Claude Code about your pipeline in the root CLAUDE.md:
+
+```markdown
+### Turborepo Pipeline
+- `build` depends on upstream `build` (topological)
+- `test` depends on own `build`
+- `typecheck` depends on upstream `build`
+- Use `turbo <task> --filter=<package>...` to run for affected only
+```
+
+## Nx-Specific Workflows
+
+For Nx monorepos, Claude Code can use the Nx CLI and project graph:
+
+```bash
+claude "Run 'npx nx affected --target=test' to test
+       only projects affected by my changes. Fix any
+       failures."
+```
+
+```bash
+claude "Show me the dependency graph for the 'web' app
+       by running 'npx nx graph --focus=web'. Then
+       explain the critical path for builds."
+```
+
+### Nx Generators
+
+Claude Code can run Nx generators to scaffold new packages:
+
+```bash
+claude "Use Nx to generate a new library:
+       npx nx g @nx/js:library --name=email-service \
+         --directory=packages/email-service \
+         --bundler=tsc
+
+       Then implement an email service with:
+       - Resend SDK for transactional emails
+       - Template system using React Email
+       - Queue integration for bulk sends"
+```
+
+## Performance at Scale
+
+Large monorepos (1000+ files) require attention to context efficiency:
+
+### Scoped File Reading
+
+```markdown
+# CLAUDE.md
+## Important for Large Codebase
+When working on a specific package, ONLY read files in that
+package and shared-types. Do not scan the entire monorepo
+unless explicitly asked for a cross-cutting change.
+```
+
+### Targeted Grep
+
+```bash
+# Good: scoped search
+claude "Find all usages of the fetchUser function
+       in apps/web/src/"
+
+# Bad: unscoped search (reads too many files)
+claude "Find all usages of fetchUser in the entire monorepo"
+```
+
+### Build Cache Awareness
+
+```markdown
+# CLAUDE.md
+## Build Caching
+Turborepo caches build outputs. If you only changed a test
+file, `turbo build` will be instant for unchanged packages.
+Do NOT run `turbo build --force` unless debugging cache issues.
+```
+
+## Common Monorepo Tasks
+
+### New Package Scaffolding
+
+```bash
+claude "Create a new package at packages/notifications/:
+       1. Initialize with package.json (name: @myapp/notifications)
+       2. Add TypeScript config extending root tsconfig
+       3. Add to pnpm-workspace.yaml if needed
+       4. Create src/index.ts with barrel exports
+       5. Add to turbo.json pipeline
+       6. Implement notification service with:
+          - In-app notifications (Firestore)
+          - Email notifications (Resend)
+          - Push notifications (Expo)
+       7. Add as dependency to apps/api and apps/web"
+```
+
+### Shared Configuration
+
+```bash
+claude "Create a shared ESLint config at packages/eslint-config/:
+       - Base rules for all packages
+       - React-specific rules (extends base)
+       - Node-specific rules (extends base)
+       - Update all packages to use the shared config
+       - Remove duplicate ESLint configs from individual packages"
+```
+
+### Version Consistency
+
+```bash
+claude "Check for version inconsistencies across the monorepo.
+       All packages should use the same versions of:
+       - typescript, react, react-dom
+       - vitest, @testing-library/*
+       - eslint and plugins
+
+       Fix any mismatches by aligning to the latest version."
+```
+
+Monorepos are where Claude Code's ability to reason across files and packages delivers the most value. A single prompt can orchestrate changes that would otherwise require careful coordination across multiple packages, build pipelines, and test suites. The key is investing in good CLAUDE.md files at each level so Claude Code always has the right context for the scope of work.

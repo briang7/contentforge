@@ -1,0 +1,55 @@
+---
+interface Props {
+  type: 'tip' | 'info' | 'warning' | 'danger';
+  title?: string;
+}
+
+const { type, title } = Astro.props;
+
+const config: Record<string, { svg: string; bg: string; border: string; text: string; glow: string; defaultTitle: string }> = {
+  tip: {
+    svg: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />',
+    bg: 'bg-emerald-500/5',
+    border: 'border-emerald-500/40',
+    text: 'text-emerald-400',
+    glow: 'shadow-emerald-500/5',
+    defaultTitle: 'Tip',
+  },
+  info: {
+    svg: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />',
+    bg: 'bg-blue-500/5',
+    border: 'border-blue-500/40',
+    text: 'text-blue-400',
+    glow: 'shadow-blue-500/5',
+    defaultTitle: 'Info',
+  },
+  warning: {
+    svg: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />',
+    bg: 'bg-amber-500/5',
+    border: 'border-amber-500/40',
+    text: 'text-amber-400',
+    glow: 'shadow-amber-500/5',
+    defaultTitle: 'Warning',
+  },
+  danger: {
+    svg: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />',
+    bg: 'bg-red-500/5',
+    border: 'border-red-500/40',
+    text: 'text-red-400',
+    glow: 'shadow-red-500/5',
+    defaultTitle: 'Danger',
+  },
+};
+
+const { svg, bg, border, text, glow, defaultTitle } = config[type];
+---
+
+<aside class={`border-l-4 ${border} ${bg} p-4 my-6 rounded-r-xl not-prose shadow-lg ${glow}`}>
+  <p class={`font-semibold ${text} flex items-center gap-2 mb-1.5`}>
+    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" set:html={svg} />
+    {title || defaultTitle}
+  </p>
+  <div class="text-sm text-slate-300 leading-relaxed [&>p]:mb-2 [&>p:last-child]:mb-0">
+    <slot />
+  </div>
+</aside>

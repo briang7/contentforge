@@ -1,0 +1,232 @@
+---
+title: "Multi-Agent Workflows with Claude Code"
+description: "Orchestrate multiple Claude Code agents across worktrees, subprocesses, and parallel tasks to tackle complex refactors, migrations, and feature builds at scale."
+pubDate: 2026-03-04
+category: advanced
+tags: ["multi-agent", "worktrees", "parallel", "architecture", "advanced"]
+author: brian-garcia
+featured: false
+---
+
+Single-agent workflows are fine for focused tasks. But when you're refactoring a monorepo, migrating a database while updating API consumers, or building a feature that touches frontend, backend, and infrastructure simultaneously — you need multiple agents working in concert. Claude Code's multi-agent capabilities let you split complex work across isolated environments and coordinate results.
+
+## The Agent Dispatch Pattern
+
+The core idea is simple: a primary Claude Code session acts as an orchestrator, spawning sub-agents that work on isolated branches or worktrees. Each agent has its own context, its own set of changes, and reports back to the coordinator.
+
+```bash
+# Primary session: plan and dispatch
+claude "Plan the migration from Express to Hono.
+       Break it into independent chunks that can be
+       worked on in parallel."
+```
+
+Claude Code's Task tool internally spawns sub-agents with their own context windows. But you can also orchestrate this yourself using worktrees and multiple terminal sessions.
+
+## Git Worktrees for Isolation
+
+Git worktrees let you check out multiple branches of the same repo simultaneously without cloning. Each worktree is a separate working directory with its own HEAD.
+
+```bash
+# Create worktrees for parallel work
+git worktree add ../myapp-auth feature/auth-migration
+git worktree add ../myapp-api feature/api-migration
+git worktree add ../myapp-db feature/db-migration
+```
+
+Now launch separate Claude Code sessions in each:
+
+```bash
+# Terminal 1
+cd ../myapp-auth
+claude "Migrate all authentication from passport.js to
+       lucia-auth. Keep the existing session schema.
+       Update all middleware and route handlers."
+
+# Terminal 2
+cd ../myapp-api
+claude "Convert all Express route handlers to Hono.
+       Maintain the same URL patterns and response shapes.
+       Update middleware chain."
+
+# Terminal 3
+cd ../myapp-db
+claude "Migrate from Knex to Drizzle ORM. Generate the
+       Drizzle schema from the existing database. Update
+       all query files."
+```
+
+Each agent works independently with full repo context. When they're done, you merge the results:
+
+```bash
+git checkout main
+git merge feature/auth-migration
+git merge feature/api-migration
+git merge feature/db-migration --no-edit
+```
+
+## CLAUDE.md for Agent Coordination
+
+The key to successful multi-agent work is clear scoping. Each worktree can have its own `CLAUDE.md` that constrains what the agent should touch:
+
+```markdown
+# CLAUDE.md (in auth worktree)
+
+## Scope
+You are ONLY modifying authentication-related code.
+Do NOT touch:
+- API route handlers (another agent handles this)
+- Database queries (another agent handles this)
+- Frontend components
+
+## Files in scope
+- src/auth/**
+- src/middleware/auth.ts
+- src/types/auth.ts
+- tests/auth/**
+
+## Constraints
+- Keep existing session cookie format
+- Maintain backward compatibility with current tokens
+- All tests must pass before considering done
+```
+
+## Headless Mode for Automation
+
+For CI/CD or scripted multi-agent pipelines, use headless mode with the `-p` flag:
+
+```bash
+#!/bin/bash
+# parallel-refactor.sh
+
+# Run agents in parallel using background processes
+claude -p "Refactor all React class components in src/components/
+          to function components with hooks" \
+  --output-format json > results/components.json &
+
+claude -p "Add TypeScript strict types to all files in src/utils/.
+          Remove all 'any' types. Add proper generics." \
+  --output-format json > results/types.json &
+
+claude -p "Convert all test files from Jest to Vitest.
+          Update imports, matchers, and config." \
+  --output-format json > results/tests.json &
+
+# Wait for all agents to finish
+wait
+echo "All agents completed"
+```
+
+The `--output-format json` flag gives you structured results you can parse and validate programmatically.
+
+## The Coordinator Pattern
+
+For more complex orchestration, use a coordinator script that dispatches work and validates results:
+
+```typescript
+// coordinator.ts
+import { execSync } from 'child_process';
+
+interface AgentTask {
+  name: string;
+  worktree: string;
+  branch: string;
+  prompt: string;
+  validation: string;
+}
+
+const tasks: AgentTask[] = [
+  {
+    name: 'api-layer',
+    worktree: '../app-api',
+    branch: 'refactor/api-layer',
+    prompt: `Convert all REST endpoints to tRPC procedures.
+             Maintain the same input/output types.`,
+    validation: 'npm run typecheck && npm run test:api',
+  },
+  {
+    name: 'data-layer',
+    worktree: '../app-data',
+    branch: 'refactor/data-layer',
+    prompt: `Replace all raw SQL queries with Drizzle ORM.
+             Generate schema from existing tables.`,
+    validation: 'npm run typecheck && npm run test:db',
+  },
+  {
+    name: 'ui-layer',
+    worktree: '../app-ui',
+    branch: 'refactor/ui-layer',
+    prompt: `Migrate all components from Chakra UI to shadcn/ui.
+             Maintain the same visual appearance.`,
+    validation: 'npm run typecheck && npm run build',
+  },
+];
+
+async function runAgent(task: AgentTask) {
+  // Create worktree
+  execSync(`git worktree add ${task.worktree} -b ${task.branch}`);
+
+  // Run Claude Code in headless mode
+  execSync(
+    `cd ${task.worktree} && claude -p "${task.prompt}"`,
+    { stdio: 'inherit', timeout: 600000 }
+  );
+
+  // Validate results
+  try {
+    execSync(`cd ${task.worktree} && ${task.validation}`, {
+      stdio: 'inherit',
+    });
+    console.log(`✅ ${task.name}: passed validation`);
+    return true;
+  } catch {
+    console.error(`❌ ${task.name}: failed validation`);
+    return false;
+  }
+}
+
+// Run all agents in parallel
+const results = await Promise.all(tasks.map(runAgent));
+const allPassed = results.every(Boolean);
+
+if (allPassed) {
+  console.log('All agents passed. Merging...');
+  for (const task of tasks) {
+    execSync(`git merge ${task.branch} --no-edit`);
+  }
+} else {
+  console.log('Some agents failed. Review manually.');
+}
+```
+
+## Conflict Resolution Strategy
+
+When merging parallel agent work, conflicts are inevitable. The approach depends on scope discipline:
+
+**Minimal conflicts (good scoping):** Each agent touches different files. Merges are clean.
+
+**Moderate conflicts (shared types):** Agents modify shared type definitions. Use a two-pass approach:
+
+```bash
+# Pass 1: Merge all branches, collecting conflicts
+git merge feature/api --no-commit
+git merge feature/db --no-commit
+
+# Pass 2: Let Claude Code resolve conflicts
+claude "Resolve all merge conflicts in the working tree.
+       Prefer the changes from the most recent branch.
+       Ensure type consistency across all modified files."
+```
+
+**Heavy conflicts (overlapping scope):** Rethink your decomposition. If agents are stepping on each other, the task boundaries are wrong.
+
+## Practical Limits
+
+Multi-agent workflows are powerful but have real constraints:
+
+- **Context independence**: Each agent starts fresh. It doesn't know what other agents are doing. Your CLAUDE.md scoping must be explicit enough that agents don't make conflicting decisions.
+- **Merge complexity**: The more agents touch shared files, the harder merges become. Design your splits around file boundaries, not feature boundaries.
+- **Validation is critical**: Never merge agent output without running your test suite. Automated validation in your coordinator script is not optional.
+- **Cost scales linearly**: Each agent uses its own API context. Five agents doing 30-minute tasks costs five times a single 30-minute task. Parallelize when wall-clock time matters more than compute cost.
+
+The sweet spot is 3-5 agents working on clearly separated concerns — enough parallelism to dramatically cut wall-clock time, but not so many that coordination overhead dominates.

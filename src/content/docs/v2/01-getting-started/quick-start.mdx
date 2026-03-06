@@ -1,0 +1,159 @@
+---
+title: "Quick Start"
+description: "Complete your first task with Claude Code in under five minutes."
+section: "Getting Started"
+order: 3
+version: "v2"
+---
+
+# Quick Start
+
+This guide walks you through your first Claude Code session. You will start a conversation, ask Claude to understand your project, and complete a simple coding task -- all from the terminal.
+
+## Starting Your First Session
+
+Navigate to any project directory and launch Claude Code:
+
+```bash
+cd ~/projects/my-app
+claude
+```
+
+Claude Code starts an interactive REPL. You will see a prompt where you can type natural language requests:
+
+```
+╭─────────────────────────────────╮
+│ Claude Code                     │
+│ Project: my-app                 │
+│ Type your request...            │
+╰─────────────────────────────────╯
+
+>
+```
+
+## Understanding Your Project
+
+Start by asking Claude to explore your codebase:
+
+```
+> Give me an overview of this project's architecture
+```
+
+Claude will read your project files, examine the directory structure, and provide a summary. It automatically detects frameworks, languages, and patterns.
+
+```
+> What testing framework does this project use?
+```
+
+Claude searches for test files, config files (`jest.config.js`, `vitest.config.ts`, etc.), and `package.json` to give you an accurate answer.
+
+## Completing a Simple Task
+
+Let's add a utility function to a project. Here is a typical workflow:
+
+```
+> Create a utility function called formatCurrency that takes a number
+  and returns a formatted USD string. Put it in src/utils/format.ts
+  and add tests.
+```
+
+Claude will:
+
+1. **Check** if `src/utils/` exists and what other utilities are there
+2. **Read** existing code to match your project's style and conventions
+3. **Write** the implementation file:
+
+```typescript
+// src/utils/format.ts
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount);
+}
+```
+
+4. **Write** the test file:
+
+```typescript
+// src/utils/format.test.ts
+import { describe, it, expect } from 'vitest';
+import { formatCurrency } from './format';
+
+describe('formatCurrency', () => {
+  it('formats positive numbers', () => {
+    expect(formatCurrency(1234.56)).toBe('$1,234.56');
+  });
+
+  it('formats zero', () => {
+    expect(formatCurrency(0)).toBe('$0.00');
+  });
+
+  it('formats negative numbers', () => {
+    expect(formatCurrency(-99.9)).toBe('-$99.90');
+  });
+});
+```
+
+5. **Run** the tests to verify everything passes:
+
+```bash
+npm test -- src/utils/format.test.ts
+```
+
+## The Approval Workflow
+
+Claude Code asks for your permission before taking potentially impactful actions. You will see prompts like:
+
+```
+Claude wants to write to src/utils/format.ts
+[Allow] [Deny] [Allow Always]
+```
+
+- **Allow** -- approve this specific action
+- **Deny** -- reject and tell Claude to try a different approach
+- **Allow Always** -- auto-approve this type of action for the session
+
+## Useful Follow-Up Commands
+
+Once you have completed a task, you can continue the conversation:
+
+```
+> Run the linter on the files we just created
+
+> Now add support for other currencies as a second parameter
+
+> Commit these changes with a descriptive message
+```
+
+## One-Shot Mode
+
+For quick tasks, skip the interactive session and use the `-p` (print) flag:
+
+```bash
+# Get a quick answer
+claude -p "What does the handleSubmit function in src/components/Form.tsx do?"
+
+# Pipe input for processing
+cat error.log | claude -p "Summarize the errors in this log"
+
+# Generate code to stdout
+claude -p "Write a bash script that backs up all .env files" > backup-env.sh
+```
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+C` | Cancel current generation |
+| `Ctrl+D` | Exit Claude Code |
+| `Up/Down` | Navigate input history |
+| `Shift+Enter` | Multi-line input |
+
+## Next Steps
+
+Now that you have completed your first task:
+
+- Set up a [CLAUDE.md](/docs/v2/02-core-concepts/claude-md-files) file for project-specific context
+- Learn about [Configuration](/docs/v2/01-getting-started/configuration) options to customize behavior
+- Explore [Slash Commands](/docs/v2/03-features/slash-commands) for quick actions

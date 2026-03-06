@@ -1,0 +1,44 @@
+---
+import { getCollection, render } from 'astro:content';
+import DocLayout from '@layouts/DocLayout.astro';
+
+export async function getStaticPaths() {
+  const docs = await getCollection('docs', ({ data }) => !data.draft);
+  return docs.map((doc) => ({
+    params: { id: doc.id },
+    props: { doc },
+  }));
+}
+
+const { doc } = Astro.props;
+const { Content, headings } = await render(doc);
+
+// All docs in same version for prev/next
+const allDocs = await getCollection('docs', ({ data }) =>
+  data.version === doc.data.version && !data.draft
+);
+const sorted = allDocs.sort((a, b) => {
+  // Sort by section name, then by order within section
+  const sectionCompare = a.data.section.localeCompare(b.data.section);
+  if (sectionCompare !== 0) return sectionCompare;
+  return a.data.order - b.data.order;
+});
+const currentIndex = sorted.findIndex((d) => d.id === doc.id);
+const prevDoc = sorted[currentIndex - 1];
+const nextDoc = sorted[currentIndex + 1];
+
+const editUrl = `https://github.com/briang7/contentforge/edit/main/src/content/docs/${doc.id}.mdx`;
+---
+
+<DocLayout
+  title={doc.data.title}
+  description={doc.data.description}
+  version={doc.data.version}
+  currentId={doc.id}
+  headings={headings}
+  editUrl={editUrl}
+  prevDoc={prevDoc ? { id: prevDoc.id, title: prevDoc.data.title } : undefined}
+  nextDoc={nextDoc ? { id: nextDoc.id, title: nextDoc.data.title } : undefined}
+>
+  <Content />
+</DocLayout>

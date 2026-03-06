@@ -1,0 +1,247 @@
+---
+title: "Automated Testing Strategies with Claude Code"
+description: "Use Claude Code to generate, run, and maintain comprehensive test suites. Covers TDD workflows, test-first prompting, snapshot testing, coverage-driven development, and CI integration."
+pubDate: 2026-02-25
+category: best-practices
+tags: ["testing", "tdd", "ci-cd", "vitest", "automation"]
+author: brian-garcia
+featured: false
+---
+
+Testing is where Claude Code delivers some of its highest-leverage value. It can analyze your implementation, identify edge cases you missed, generate comprehensive test suites, and iterate until coverage targets are met — all in the time it would take you to write a single test file. But the quality of generated tests depends heavily on how you prompt and structure the workflow.
+
+## Test-First Prompting
+
+The most effective pattern is describing what you want tested before the implementation exists. This isn't traditional TDD where you write tests first — it's telling Claude Code what behavior to verify, then letting it build both sides.
+
+```bash
+claude "Create a rate limiter module in src/lib/rate-limiter.ts.
+       It should:
+       - Use a sliding window algorithm
+       - Support per-key limits (e.g., per user IP)
+       - Be configurable: window size, max requests
+       - Return { allowed: boolean, remaining: number, resetAt: Date }
+
+       Write the tests FIRST in src/lib/__tests__/rate-limiter.test.ts,
+       then implement the module to pass all tests."
+```
+
+Claude Code will write thorough tests covering happy paths, edge cases (window boundaries, concurrent requests, key isolation), and error conditions — then implement code that passes them all.
+
+## Coverage-Driven Development
+
+Start with a coverage report and let Claude Code fill the gaps:
+
+```bash
+# Run coverage first
+npx vitest --coverage --reporter=json --outputFile=coverage.json
+
+# Then ask Claude Code to fill gaps
+claude "Read the coverage report at coverage.json.
+       Identify all uncovered branches and lines.
+       Write tests to bring coverage above 90% for
+       every file in src/lib/. Focus on edge cases
+       and error paths, not trivial getters."
+```
+
+This is remarkably effective because Claude Code can parse the coverage report, identify exactly which code paths lack tests, and write targeted tests for those specific branches.
+
+### Iterative Coverage Loop
+
+For larger codebases, use an iterative approach:
+
+```bash
+claude "Run 'npx vitest --coverage' and check the results.
+       Pick the file with the lowest coverage in src/.
+       Write tests to bring it above 85%.
+       Run coverage again to verify.
+       Repeat for the next lowest file.
+       Stop when all files in src/ are above 85%."
+```
+
+Claude Code will cycle through files, running coverage between each iteration, until the target is met.
+
+## Testing Patterns by Type
+
+### Unit Tests
+
+For pure functions and isolated modules, Claude Code excels at generating exhaustive cases:
+
+```bash
+claude "Write unit tests for src/utils/validation.ts.
+       Test every exported function.
+       Include: valid inputs, invalid inputs, boundary
+       values, null/undefined handling, type coercion
+       edge cases. Use Vitest with describe/it blocks.
+       Don't mock anything — these are pure functions."
+```
+
+### Integration Tests
+
+For code that touches databases, APIs, or file systems:
+
+```bash
+claude "Write integration tests for the user registration flow.
+       Files involved:
+       - src/api/routes/auth.ts (POST /register)
+       - src/services/user-service.ts
+       - src/repos/user-repo.ts
+
+       Use a test database (DATABASE_URL from .env.test).
+       Each test should:
+       1. Set up test data
+       2. Call the API endpoint via supertest
+       3. Verify the response AND database state
+       4. Clean up after itself
+
+       Cover: successful registration, duplicate email,
+       weak password, missing fields, SQL injection attempts."
+```
+
+### Snapshot Tests
+
+For API responses, serialized output, or component rendering:
+
+```bash
+claude "Add snapshot tests for all API endpoints in
+       src/api/routes/. For each endpoint:
+       1. Call with standard test data
+       2. Snapshot the response body shape
+       3. Include a snapshot for each error case
+
+       Use Vitest inline snapshots so the expected
+       output is visible in the test file."
+```
+
+### Component Tests
+
+For React/Vue/Svelte components:
+
+```bash
+claude "Write component tests for src/components/DataTable.tsx
+       using @testing-library/react and Vitest.
+       Test:
+       - Renders correct number of rows
+       - Sorting by each column
+       - Pagination controls
+       - Empty state
+       - Loading state
+       - Error state
+       - Row selection (single and multi)
+       - Keyboard navigation (arrow keys, enter to select)
+       Don't test implementation details — test user behavior."
+```
+
+## The Fix-Until-Green Loop
+
+One of Claude Code's most powerful testing workflows is the iterative fix loop:
+
+```bash
+claude "Run the full test suite with 'npm test'.
+       If any tests fail:
+       1. Read the failing test and the source code
+       2. Determine if the bug is in the test or the code
+       3. Fix the actual bug (prefer fixing source over tests)
+       4. Run tests again
+       Repeat until all tests pass."
+```
+
+This works because Claude Code can read error output, trace it back to source code, reason about the intended behavior, and make targeted fixes. It's particularly effective after refactors that break existing tests.
+
+## Mutation Testing
+
+Mutation testing verifies that your tests actually catch bugs. A mutation testing tool modifies your source code (introduces bugs) and checks if your tests fail. If a mutation survives (tests still pass), your tests have a gap.
+
+```bash
+# Install Stryker
+npm install --save-dev @stryker-mutator/core @stryker-mutator/vitest-runner
+
+# Run mutation testing
+npx stryker run
+
+# Then ask Claude Code to fill gaps
+claude "Read the Stryker mutation testing report in
+       reports/mutation/. Find all survived mutants.
+       For each survived mutant, write a test that
+       would catch that specific mutation.
+       Run Stryker again to verify the mutant is now killed."
+```
+
+## Test Data Factories
+
+Generating realistic test data is tedious. Let Claude Code build factories:
+
+```bash
+claude "Create test data factories in tests/factories/
+       using @faker-js/faker for these models:
+       - User (with valid email, hashed password, profile)
+       - Product (with realistic names, prices, inventory)
+       - Order (with items, shipping address, payment)
+
+       Each factory should:
+       - Have sensible defaults
+       - Support overrides: createUser({ email: 'custom@test.com' })
+       - Support batch creation: createUsers(10)
+       - Support related data: createOrderWithItems(3)
+
+       Use the TypeScript types from src/types/models.ts."
+```
+
+## CI Integration
+
+Wire Claude Code into your CI pipeline for automated test maintenance:
+
+```yaml
+# .github/workflows/test-maintenance.yml
+name: Test Maintenance
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  check-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+      - run: npx vitest --coverage --reporter=json --outputFile=coverage.json
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(node -e "
+            const report = require('./coverage.json');
+            const pct = report.total.lines.pct;
+            console.log(pct);
+            process.exit(pct < 80 ? 1 : 0);
+          ")
+          echo "Line coverage: ${COVERAGE}%"
+```
+
+For teams using Claude Code in CI, you can add a step that generates missing tests:
+
+```yaml
+      - name: Generate missing tests
+        if: failure()
+        run: |
+          claude -p "Coverage dropped below 80%.
+                    Read coverage.json and write tests
+                    for uncovered code paths.
+                    Only add tests, don't modify source." \
+            --output-format json > test-suggestions.json
+```
+
+## Anti-Patterns
+
+**Don't generate tests without running them.** Always include "run the tests" in your prompt. Tests that aren't executed might have syntax errors, import issues, or false assumptions.
+
+**Don't test implementation details.** Prompts like "test that the function calls `Array.map`" produce brittle tests. Test behavior: inputs and outputs, side effects, error cases.
+
+**Don't over-mock.** If every dependency is mocked, you're testing that your mocks work, not your code. Mock external boundaries (network, filesystem, time) but use real implementations for internal modules.
+
+**Don't ignore flaky tests.** If Claude Code generates a test that sometimes passes and sometimes fails, the test has a timing dependency, shared state, or order dependency. Fix it immediately — flaky tests erode trust in the entire suite.
+
+Testing is the area where Claude Code's speed advantage is most dramatic. A comprehensive test suite that would take a developer days to write can be generated, validated, and refined in a single session. The key is clear specifications, iterative validation, and treating generated tests with the same review rigor as generated production code.

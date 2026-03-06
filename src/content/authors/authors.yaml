@@ -1,0 +1,11 @@
+- id: brian-garcia
+  name: Brian Garcia
+  bio: Full-stack developer and Claude Code CLI enthusiast. Building tools that make developers more productive.
+  github: briang7
+  website: https://github.com/briang7
+
+- id: claude-team
+  name: Claude Team
+  bio: The team behind Claude Code CLI, building the future of AI-assisted development.
+  github: anthropics
+  website: https://claude.ai/claude-code

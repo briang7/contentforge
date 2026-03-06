@@ -1,0 +1,87 @@
+---
+import { getCollection } from 'astro:content';
+
+interface Props {
+  version: string;
+  currentId: string;
+}
+
+const { version, currentId } = Astro.props;
+const allDocs = await getCollection('docs', ({ data }) =>
+  data.version === version && !data.draft
+);
+
+// Group by section, sort by order
+const sectionMap = new Map<string, typeof allDocs>();
+for (const doc of allDocs) {
+  const section = doc.data.section;
+  if (!sectionMap.has(section)) {
+    sectionMap.set(section, []);
+  }
+  sectionMap.get(section)!.push(doc);
+}
+
+// Sort docs within each section by order
+for (const [, docs] of sectionMap) {
+  docs.sort((a, b) => a.data.order - b.data.order);
+}
+
+// Sort sections by their lowest order doc
+const sortedSections = [...sectionMap.entries()].sort(([, a], [, b]) => {
+  const aMin = Math.min(...a.map((d) => d.data.order));
+  const bMin = Math.min(...b.map((d) => d.data.order));
+  return aMin - bMin;
+});
+
+const versions = ['v2', 'v1'];
+---
+
+<nav aria-label="Documentation sidebar">
+  <!-- Version selector -->
+  <div class="mb-6">
+    <label for="version-select" class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+      Version
+    </label>
+    <select
+      id="version-select"
+      class="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800/50 text-sm text-slate-300 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-colors"
+      onchange={`window.location.href = '/docs/' + this.value + '/01-getting-started/introduction'`}
+    >
+      {versions.map((v) => (
+        <option value={v} selected={v === version}>
+          {v.toUpperCase()} {v === 'v2' ? '(Latest)' : ''}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  <!-- Sections -->
+  <div class="space-y-6">
+    {sortedSections.map(([section, docs]) => (
+      <div>
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2.5 flex items-center gap-2">
+          <span class="w-1 h-1 rounded-full bg-brand-500"></span>
+          {section}
+        </p>
+        <ul class="space-y-0.5 ml-1 border-l border-slate-800">
+          {docs.map((doc) => (
+            <li>
+              <a
+                href={`/docs/${doc.id}`}
+                class:list={[
+                  'block px-3 py-1.5 -ml-px border-l-2 text-sm transition-all duration-200',
+                  doc.id === currentId
+                    ? 'border-brand-500 text-brand-400 font-medium bg-brand-500/5'
+                    : 'border-transparent text-slate-400 hover:text-white hover:border-slate-600 hover:bg-slate-800/50',
+                ]}
+                aria-current={doc.id === currentId ? 'page' : undefined}
+              >
+                {doc.data.title}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
+  </div>
+</nav>

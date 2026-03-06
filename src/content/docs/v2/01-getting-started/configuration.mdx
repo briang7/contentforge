@@ -1,0 +1,207 @@
+---
+title: "Configuration"
+description: "Configure Claude Code with settings files, environment variables, and permission modes."
+section: "Getting Started"
+order: 4
+version: "v2"
+---
+
+# Configuration
+
+Claude Code can be configured at multiple levels -- globally, per-project, and per-session. This guide covers settings files, environment variables, and permission modes.
+
+## Configuration Hierarchy
+
+Settings are resolved in the following order (highest priority first):
+
+1. **CLI flags** -- passed when launching Claude Code
+2. **Environment variables** -- set in your shell or `.env` file
+3. **Project settings** -- `.claude/settings.json` in the project root
+4. **User settings** -- `~/.claude/settings.json` in your home directory
+5. **Defaults** -- built-in Claude Code defaults
+
+## Settings Files
+
+### User Settings
+
+Global settings that apply to all projects live in your home directory:
+
+```json
+// ~/.claude/settings.json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(git *)",
+      "Read",
+      "Glob",
+      "Grep"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(sudo *)"
+    ]
+  },
+  "model": "claude-sonnet-4-20250514",
+  "theme": "dark"
+}
+```
+
+### Project Settings
+
+Project-level settings live in `.claude/settings.json` within your repository:
+
+```json
+// .claude/settings.json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build)",
+      "Bash(npm test)",
+      "Bash(npx prisma *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Bash tool invoked'"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+This file should be committed to your repository so all team members share the same configuration.
+
+## Environment Variables
+
+Claude Code recognizes several environment variables for controlling behavior:
+
+```bash
+# Required: API authentication
+export ANTHROPIC_API_KEY="sk-ant-xxxxxxxx"
+
+# Optional: Use a custom API endpoint (for proxies or enterprise)
+export ANTHROPIC_BASE_URL="https://api.anthropic.com"
+
+# Optional: Set the model to use
+export CLAUDE_MODEL="claude-sonnet-4-20250514"
+
+# Optional: Disable telemetry
+export CLAUDE_CODE_DISABLE_TELEMETRY=1
+
+# Optional: Custom config directory
+export CLAUDE_CONFIG_DIR="/path/to/config"
+```
+
+You can place these in a `.env` file at your project root, and Claude Code will load them automatically.
+
+## Permission Modes
+
+Claude Code supports three permission modes that control how tool use is approved.
+
+### Default Mode
+
+Every potentially impactful action prompts for approval:
+
+```bash
+claude
+```
+
+You will be prompted for each file write, shell command, and web request.
+
+### Allowlist Mode
+
+Pre-approve specific commands and tools in your settings:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Read",
+      "Write",
+      "Edit"
+    ]
+  }
+}
+```
+
+Matching actions proceed without prompting. Everything else still requires approval.
+
+### Dangerously Skip Permissions
+
+For fully automated pipelines (CI/CD), you can bypass all permission checks:
+
+```bash
+claude --dangerously-skip-permissions -p "Run the full test suite"
+```
+
+**Warning**: This flag disables all safety prompts. Only use it in trusted, automated environments where the input is controlled.
+
+## Model Selection
+
+You can specify which Claude model to use:
+
+```bash
+# Via CLI flag
+claude --model claude-sonnet-4-20250514
+
+# Via environment variable
+export CLAUDE_MODEL="claude-sonnet-4-20250514"
+```
+
+Available models include `claude-sonnet-4-20250514` and `claude-opus-4-20250514`. Sonnet is faster and cheaper; Opus is more capable for complex reasoning tasks.
+
+## Session Configuration
+
+Some settings only apply to the current session:
+
+```bash
+# Set a system prompt for this session
+claude --system-prompt "You are a Python expert. Always use type hints."
+
+# Limit the number of turns
+claude --max-turns 10
+
+# Continue a previous conversation
+claude --continue
+
+# Resume the most recent conversation
+claude --resume
+```
+
+## Recommended Setup for Teams
+
+For consistent behavior across a development team:
+
+1. Create `.claude/settings.json` with shared allowlists and commit it
+2. Add `.env` to `.gitignore` for individual API keys
+3. Create a project-level `CLAUDE.md` with coding conventions
+4. Document approved commands in the permission allowlist
+
+```json
+// .claude/settings.json (committed to repo)
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx jest *)",
+      "Bash(git *)",
+      "Read",
+      "Glob",
+      "Grep"
+    ]
+  }
+}
+```
+
+This ensures every team member has the same safe defaults while keeping individual API keys private.

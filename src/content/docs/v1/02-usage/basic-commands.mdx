@@ -1,0 +1,165 @@
+---
+title: "Basic Commands (v1)"
+description: "Reference for basic Claude Code v1 commands and usage patterns."
+section: "Basic Usage"
+order: 3
+version: "v1"
+---
+
+# Basic Commands (v1)
+
+> **Note**: This is the documentation for Claude Code v1. For the latest command reference, see the [v2 CLI Options](/docs/v2/05-reference/cli-options) and [Slash Commands](/docs/v2/03-features/slash-commands).
+
+Claude Code v1 provided a straightforward set of commands and interactions for AI-assisted coding directly in the terminal.
+
+## Starting a Session
+
+```bash
+# Start an interactive session in the current directory
+cd ~/projects/my-app
+claude
+```
+
+This opened a REPL where you could type requests in natural language:
+
+```
+> Explain the structure of this project
+
+> Find all TODO comments in the codebase
+
+> What dependencies does this project use?
+```
+
+## Print Mode
+
+For single queries without entering the REPL, use the `-p` flag:
+
+```bash
+# Quick question
+claude -p "What does the main function in src/index.ts do?"
+
+# Generate code to stdout
+claude -p "Write a Python script to parse CSV files" > parser.py
+
+# Pipe input
+cat error.log | claude -p "What errors are in this log?"
+```
+
+## File Operations
+
+In v1, Claude could read and write files with your approval:
+
+```
+> Read the file src/config.ts and explain what each option does
+
+> Create a new file called src/utils/validate.ts with email validation
+
+> Add error handling to the fetchData function in src/api.ts
+```
+
+Each file write required manual approval:
+
+```
+Claude wants to write to src/utils/validate.ts
+Allow? (y/n)
+```
+
+## Shell Commands
+
+Claude could execute shell commands with your approval:
+
+```
+> Run the test suite
+
+> Install lodash as a dependency
+
+> Check the git status
+```
+
+Every command required approval:
+
+```
+Claude wants to run: npm test
+Allow? (y/n)
+```
+
+There were no allowlists or auto-approve options in v1 -- every command was individually prompted.
+
+## Git Operations
+
+Common git workflows were supported through shell commands:
+
+```
+> Show me the recent commit history
+
+> What files have changed since the last commit?
+
+> Create a commit with a descriptive message for the current changes
+```
+
+Claude would run the appropriate git commands (`git log`, `git status`, `git diff`, `git commit`) with your approval at each step.
+
+## Slash Commands (v1)
+
+Claude Code v1 supported a limited set of slash commands:
+
+| Command | Description |
+|---|---|
+| `/help` | Display help information |
+| `/clear` | Clear the conversation |
+
+The expanded slash command set (`/compact`, `/commit`, `/pr`, `/model`, etc.) was introduced in v2.
+
+## Session Management
+
+v1 had basic session management:
+
+```bash
+# Continue the last conversation
+claude --continue
+
+# Resume a previous conversation
+claude --resume
+```
+
+## Common Workflows in v1
+
+### Code Review
+
+```
+> Review src/auth.ts for security issues
+```
+
+Claude would read the file and provide a review, but could not directly apply fixes without your explicit approval for each file edit.
+
+### Bug Fixing
+
+```
+> There's a bug where users can submit the form twice.
+  Find and fix it.
+```
+
+Claude would search for relevant code, identify the issue, and propose fixes -- each requiring individual approval.
+
+### Code Generation
+
+```
+> Create a REST API endpoint for managing user profiles
+  with CRUD operations
+```
+
+Claude would generate the necessary files, prompting for approval before writing each one.
+
+## Limitations of v1
+
+Claude Code v1 had several limitations that were addressed in v2:
+
+- **No permission allowlists**: Every single action required manual approval, which became tedious for trusted operations like running tests
+- **No CLAUDE.md**: No way to provide persistent project context across sessions
+- **No MCP support**: Could not integrate with external tools or data sources
+- **No hooks**: No lifecycle hooks for automation
+- **Basic context management**: No `/compact` command; long sessions would degrade in quality as the context window filled
+- **Terminal only**: No IDE integrations
+- **Text output only**: No JSON or streaming output formats
+
+For all of these improvements and more, upgrade to [Claude Code v2](/docs/v2/01-getting-started/introduction).

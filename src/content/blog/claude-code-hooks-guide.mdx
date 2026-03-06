@@ -1,0 +1,193 @@
+---
+title: "Claude Code Hooks: Automate Your Workflow"
+description: "Learn how to use Claude Code hooks to automatically format files, run linters, block dangerous commands, and integrate custom tooling into your AI workflow."
+pubDate: 2026-01-20
+category: advanced
+tags: ["hooks", "automation", "configuration", "advanced"]
+author: brian-garcia
+featured: false
+series:
+  name: "Claude Code Fundamentals"
+  order: 2
+---
+
+Hooks are one of Claude Code's most powerful features for teams that want tight control over what happens before and after Claude interacts with your codebase. They let you define shell commands that run automatically at specific points in Claude's workflow -- before a tool executes, after a tool executes, or when a conversation starts. This guide covers how hooks work, how to configure them, and practical examples you can start using immediately.
+
+## What Are Hooks?
+
+When Claude Code performs actions like editing a file, running a shell command, or creating a new file, it uses internal tools. Hooks let you intercept these tool invocations and run your own commands at two key moments:
+
+- **PreToolUse** -- runs before Claude executes a tool. Can block the tool from running.
+- **PostToolUse** -- runs after Claude executes a tool. Useful for cleanup, formatting, or validation.
+- **Notification** -- runs when Claude Code sends a notification (e.g., when a task completes).
+- **Stop** -- runs when Claude finishes its turn and is about to return control to you.
+
+Hooks run as shell commands in your local environment, so they have full access to your filesystem and any CLI tools you have installed.
+
+## Configuring Hooks
+
+Hooks are defined in your Claude Code settings file. You can configure them at three levels:
+
+- **Project-level:** `.claude/settings.json` in your project root (checked into version control)
+- **User-level:** `~/.claude/settings.json` (personal preferences)
+- **Enterprise-level:** Managed settings for organizations
+
+Here is the basic structure of a hooks configuration:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hook": "echo 'A file is about to be modified'"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hook": "npx prettier --write $CLAUDE_FILE_PATH"
+      }
+    ]
+  }
+}
+```
+
+The `matcher` field is a regex pattern that matches against the tool name. Common tool names include `Edit`, `Write`, `Bash`, `Glob`, `Grep`, and `Read`. If you omit the matcher, the hook runs for every tool invocation.
+
+## Environment Variables
+
+When a hook runs, Claude Code injects several environment variables so your script knows what is happening:
+
+| Variable | Description |
+|----------|------------|
+| `CLAUDE_TOOL_NAME` | The name of the tool being used (e.g., "Edit", "Bash") |
+| `CLAUDE_FILE_PATH` | The file being operated on (for file-based tools) |
+| `CLAUDE_TOOL_INPUT` | JSON string of the full tool input parameters |
+
+These variables let you write hooks that behave differently depending on the tool or file involved.
+
+## Example: Auto-Format on File Save
+
+The most common hook is running a code formatter after Claude edits a file. This ensures that every change Claude makes conforms to your project's style rules:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hook": "npx prettier --write $CLAUDE_FILE_PATH 2>/dev/null || true"
+      }
+    ]
+  }
+}
+```
+
+The `|| true` at the end prevents the hook from failing if Prettier encounters a file type it does not handle. You could swap Prettier for any formatter -- `black` for Python, `rustfmt` for Rust, `gofmt` for Go:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hook": "/bin/bash -c 'case \"$CLAUDE_FILE_PATH\" in *.py) black \"$CLAUDE_FILE_PATH\" ;; *.go) gofmt -w \"$CLAUDE_FILE_PATH\" ;; *.ts|*.tsx|*.js|*.jsx) npx prettier --write \"$CLAUDE_FILE_PATH\" ;; esac'"
+      }
+    ]
+  }
+}
+```
+
+This approach automatically dispatches to the right formatter based on file extension.
+
+## Example: Blocking Dangerous Commands
+
+PreToolUse hooks can block a tool from executing by exiting with a non-zero status code and printing a reason to stderr. This is valuable for preventing accidental destructive operations:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hook": "/bin/bash -c 'echo $CLAUDE_TOOL_INPUT | grep -qE \"rm\\s+-rf\\s+/|git\\s+push.*--force|drop\\s+database\" && echo \"BLOCKED: Dangerous command detected\" >&2 && exit 1 || exit 0'"
+      }
+    ]
+  }
+}
+```
+
+When Claude tries to run a bash command matching the pattern, the hook fires, prints the block reason, and exits with code 1. Claude sees the block and will not execute the command. It will explain to you what it was trying to do and ask how to proceed.
+
+## Example: Auto-Run Tests After Changes
+
+You can automatically trigger your test suite after Claude modifies source files to catch regressions immediately:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hook": "/bin/bash -c 'case \"$CLAUDE_FILE_PATH\" in *.test.*|*.spec.*) exit 0 ;; *.ts|*.tsx) npx jest --findRelatedTests \"$CLAUDE_FILE_PATH\" --passWithNoTests 2>/dev/null ;; esac'"
+      }
+    ]
+  }
+}
+```
+
+This hook runs Jest's related-tests mode only when Claude edits a TypeScript source file (skipping test files themselves to avoid infinite loops).
+
+## Example: Notification When Done
+
+The Stop hook runs when Claude finishes a turn. You can use it to trigger a desktop notification so you know when a long-running task completes:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hook": "osascript -e 'display notification \"Claude Code has finished\" with title \"Task Complete\"'"
+      }
+    ]
+  }
+}
+```
+
+On Linux, you could use `notify-send` instead of `osascript`.
+
+## Writing Robust Hooks
+
+A few tips for writing hooks that work reliably:
+
+1. **Always handle errors gracefully.** Use `|| true` or `2>/dev/null` where appropriate so a hook failure does not derail Claude's workflow.
+
+2. **Keep hooks fast.** Hooks run synchronously -- a slow hook adds latency to every tool call. If you need to run something expensive, consider spawning it in the background.
+
+3. **Use the matcher to be specific.** Running a hook on every tool invocation adds unnecessary overhead. Scope it to only the tools that matter.
+
+4. **Test hooks manually first.** Before putting a command in your hook config, run it in your terminal with sample values to verify it works.
+
+5. **Use project-level settings for team standards.** Formatting and safety hooks belong in `.claude/settings.json` so every team member benefits. Personal preferences like notifications belong in your user-level settings.
+
+## Debugging Hooks
+
+If a hook is not working as expected, you can add logging to see what is happening:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hook": "echo \"[HOOK DEBUG] Tool: $CLAUDE_TOOL_NAME, File: $CLAUDE_FILE_PATH\" >> /tmp/claude-hooks.log"
+      }
+    ]
+  }
+}
+```
+
+Check `/tmp/claude-hooks.log` to see every tool invocation and the variables available to your hooks.
+
+Hooks transform Claude Code from a conversational assistant into an integrated part of your development pipeline. Start with auto-formatting and a safety hook, then expand as you discover patterns in your workflow that benefit from automation.

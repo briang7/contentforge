@@ -1,0 +1,277 @@
+---
+title: "Debugging Production Issues with Claude Code"
+description: "Use Claude Code to diagnose crashes, trace performance bottlenecks, analyze logs, reproduce race conditions, and build fixes for production incidents under pressure."
+pubDate: 2026-02-05
+category: advanced
+tags: ["debugging", "production", "performance", "logs", "incidents"]
+author: brian-garcia
+featured: true
+---
+
+It's 2 AM and your monitoring is screaming. Response times have spiked, error rates are climbing, and customers are filing tickets. This is exactly when Claude Code becomes your most valuable teammate — it doesn't get tired, doesn't panic, and can process error logs, stack traces, and codepaths faster than any human under pressure.
+
+## The Incident Response Workflow
+
+When a production issue hits, you need speed and accuracy. Here's the workflow that consistently gets results:
+
+### Step 1: Feed It Context
+
+```bash
+claude "Production incident. Here's what we know:
+       - Error rate jumped 40x at 01:47 UTC
+       - Affected: POST /api/checkout endpoint
+       - Error: 'Cannot read property .id of undefined'
+       - Stack trace:
+         at processPayment (src/services/payment.ts:142)
+         at checkoutHandler (src/api/routes/checkout.ts:67)
+         at async Router.handle
+
+       Read the relevant source files and identify
+       what could cause .id to be undefined.
+       Check git log for recent changes to these files."
+```
+
+Claude Code will read the files, trace the data flow, check recent commits, and identify the likely cause — often a missing null check after a recent refactor, a changed API response shape, or a race condition.
+
+### Step 2: Reproduce Locally
+
+```bash
+claude "Based on your analysis, write a test that
+       reproduces this exact failure. The test should:
+       1. Set up the same conditions that cause the bug
+       2. Call the checkout handler
+       3. Assert that it throws the same error
+       4. Then we'll fix it and verify the test passes"
+```
+
+Having a failing test before fixing the bug ensures your fix actually addresses the root cause and prevents regressions.
+
+### Step 3: Fix and Verify
+
+```bash
+claude "Fix the bug. Then:
+       1. Run the reproduction test — it should pass
+       2. Run the full test suite — no regressions
+       3. Show me the diff so I can review before deploying"
+```
+
+## Log Analysis
+
+Production logs are often overwhelming in volume. Claude Code can parse and pattern-match through them:
+
+```bash
+# Export relevant logs to a file
+kubectl logs deployment/api --since=1h > /tmp/api-logs.txt
+
+claude "Analyze the logs at /tmp/api-logs.txt.
+       Find:
+       1. The first occurrence of the error
+       2. What requests were being processed when it started
+       3. Any pattern in the failing requests (same user?
+          same product? same region?)
+       4. Whether the error is intermittent or continuous
+       5. Any correlated warnings before the errors started"
+```
+
+### Structured Log Queries
+
+For JSON-structured logs, Claude Code can write precise queries:
+
+```bash
+claude "Our logs are JSON structured. Write a jq command
+       to extract from /tmp/api-logs.txt:
+       - All entries with level='error' in the last hour
+       - Grouped by error message
+       - With count and first/last occurrence timestamp
+       - Include the request_id for the first occurrence of each"
+```
+
+## Performance Debugging
+
+### Identifying Slow Queries
+
+```bash
+claude "Our /api/dashboard endpoint is taking 12 seconds.
+       Read the handler at src/api/routes/dashboard.ts
+       and trace every database query it makes.
+
+       For each query:
+       1. What table/collection does it hit?
+       2. Does it have an index for the WHERE clause?
+       3. Is it doing a full table scan?
+       4. Could it be combined with another query?
+
+       Check the schema at src/db/schema.ts for index
+       definitions."
+```
+
+### N+1 Query Detection
+
+```bash
+claude "Check src/api/routes/ for N+1 query patterns.
+       An N+1 happens when code:
+       1. Fetches a list of items
+       2. Then loops through each item making another query
+
+       For each N+1 found:
+       - Show the code location
+       - Explain the performance impact
+       - Rewrite it using a JOIN or batch query"
+```
+
+### Memory Leak Investigation
+
+```bash
+claude "Our Node.js API's memory usage grows linearly
+       and never decreases, reaching OOM after ~6 hours.
+
+       Common causes to check:
+       1. Event listeners never removed — check all
+          .on() calls without corresponding .off()
+       2. Growing arrays/maps used as caches without
+          eviction — check module-level variables
+       3. Closures capturing large objects — check
+          middleware and route handler factories
+       4. Unreleased database connections — check
+          connection pool configuration
+
+       Search the codebase for these patterns and
+       report findings with file:line references."
+```
+
+## Race Condition Debugging
+
+Race conditions are the hardest bugs to diagnose because they're non-deterministic. Claude Code can reason about concurrency:
+
+```bash
+claude "Users occasionally see stale data after updating
+       their profile. The update succeeds (200 response)
+       but the next GET returns old data.
+
+       Read:
+       - src/api/routes/profile.ts (update and get handlers)
+       - src/services/user-service.ts
+       - src/cache/redis.ts
+
+       Look for race conditions between:
+       - Database write and cache invalidation
+       - Cache invalidation and cache repopulation
+       - Concurrent requests from the same user
+
+       If you find a race condition, explain the exact
+       sequence of events that causes it and propose a fix."
+```
+
+Claude Code often identifies patterns like:
+
+```typescript
+// Bug: race condition between write and cache delete
+async function updateProfile(userId: string, data: UpdateData) {
+  await db.users.update(userId, data);       // 1. Write to DB
+  await cache.delete(`user:${userId}`);       // 2. Delete cache
+  // But another request might read the DB and repopulate
+  // cache between steps 1 and 2, or step 2 might fail
+}
+
+// Fix: write-through cache
+async function updateProfile(userId: string, data: UpdateData) {
+  const updated = await db.users.update(userId, data);
+  await cache.set(`user:${userId}`, updated, { ttl: 3600 });
+}
+```
+
+## Error Classification
+
+When you're drowning in errors, classification helps prioritize:
+
+```bash
+claude "Read the error tracking data at /tmp/errors.json.
+       Classify each unique error into:
+
+       🔴 Critical — Data loss, security, payment failures
+       🟡 High — Feature broken, user-facing errors
+       🟢 Low — Cosmetic, non-blocking, edge cases
+
+       For each error, include:
+       - Frequency (count in last 24h)
+       - Affected users (unique user count)
+       - First and last seen
+       - Recommended fix priority
+
+       Sort by severity then frequency."
+```
+
+## Post-Incident Analysis
+
+After the immediate fire is out, use Claude Code for the postmortem:
+
+```bash
+claude "We just resolved an incident. Generate a
+       post-incident report based on:
+
+       - Timeline: Error started 01:47, detected 02:03,
+         mitigated 02:34, resolved 02:51
+       - Root cause: The fix you just made
+       - Impact: ~340 failed checkout attempts
+
+       Include:
+       1. Summary (2 sentences)
+       2. Timeline with timestamps
+       3. Root cause analysis
+       4. What went well
+       5. What could be improved
+       6. Action items with owners
+
+       Write it in markdown at docs/incidents/2026-03-04.md"
+```
+
+## Building Monitoring From Bugs
+
+Every production bug is an opportunity to improve observability:
+
+```bash
+claude "Based on the bug we just fixed in payment processing:
+
+       1. Add structured logging around the payment flow
+          so we can detect this class of issue earlier
+       2. Add a health check endpoint that verifies the
+          payment service connection
+       3. Write a monitoring query that would alert us
+          if this error pattern starts recurring
+       4. Add the error to our known-issues runbook"
+```
+
+## Debugging Checklist in CLAUDE.md
+
+Add this to your project's CLAUDE.md so Claude Code always has your debugging conventions:
+
+```markdown
+## Debugging Conventions
+When debugging production issues:
+1. NEVER modify production data or configs
+2. Always reproduce locally before fixing
+3. Write a failing test before implementing the fix
+4. Check git blame for recent changes to affected files
+5. Look for related errors in the same timeframe
+6. Consider concurrent request scenarios
+7. Check dependency versions for known issues
+8. Document findings in docs/incidents/
+```
+
+## Quick Diagnostic Commands
+
+Keep a section of diagnostic one-liners Claude Code can run:
+
+```markdown
+## Diagnostic Commands
+- DB connection test: `psql $DATABASE_URL -c 'SELECT 1'`
+- Redis connection: `redis-cli -u $REDIS_URL ping`
+- API health: `curl -s localhost:3000/health | jq`
+- Recent errors: `tail -100 /var/log/api/error.log`
+- Active connections: `ss -tnp | grep :3000`
+- Memory usage: `ps aux --sort=-%mem | head -5`
+- Disk space: `df -h`
+- Recent deploys: `git log --oneline -5`
+```
+
+Production debugging under pressure is where the combination of Claude Code's speed, codebase knowledge, and systematic reasoning delivers the most value. The key is feeding it focused context — the error, the stack trace, the relevant files — and letting it trace the data flow to find the root cause. Save the exploratory debugging for later; during an incident, go straight for the throat.

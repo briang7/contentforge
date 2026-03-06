@@ -1,0 +1,248 @@
+---
+title: "Environment Variables"
+description: "Complete reference of all environment variables recognized by Claude Code."
+section: "Reference"
+order: 17
+version: "v2"
+---
+
+# Environment Variables
+
+Claude Code reads several environment variables for configuration, authentication, and behavior control. This page documents all recognized variables, their purposes, and recommended usage.
+
+## Authentication
+
+### ANTHROPIC_API_KEY
+
+Your Anthropic API key for authenticating with the Claude API.
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+This is the primary authentication method. The key can also be provided through interactive login (`claude` on first run) or IDE plugin settings.
+
+**Security note**: Never commit this value to version control. Use `.env` files (added to `.gitignore`) or your operating system's secret manager.
+
+### ANTHROPIC_AUTH_TOKEN
+
+An alternative authentication token, typically used in enterprise environments with custom authentication providers.
+
+```bash
+export ANTHROPIC_AUTH_TOKEN="your-enterprise-token"
+```
+
+## API Configuration
+
+### ANTHROPIC_BASE_URL
+
+Custom base URL for the Anthropic API. Use this when routing through a proxy, gateway, or enterprise endpoint.
+
+```bash
+# Default
+export ANTHROPIC_BASE_URL="https://api.anthropic.com"
+
+# Custom proxy
+export ANTHROPIC_BASE_URL="https://ai-gateway.company.com/anthropic"
+```
+
+### CLAUDE_MODEL
+
+Set the default Claude model. Overridden by the `--model` CLI flag.
+
+```bash
+export CLAUDE_MODEL="claude-sonnet-4-20250514"
+```
+
+Available values:
+- `claude-sonnet-4-20250514` -- Fast, cost-effective (default)
+- `claude-opus-4-20250514` -- Most capable for complex reasoning
+
+### CLAUDE_MAX_TOKENS
+
+Set the maximum number of tokens in Claude's response.
+
+```bash
+export CLAUDE_MAX_TOKENS=8192
+```
+
+## Directories and Paths
+
+### CLAUDE_CONFIG_DIR
+
+Override the default configuration directory (`~/.claude`).
+
+```bash
+export CLAUDE_CONFIG_DIR="/custom/path/to/claude-config"
+```
+
+The config directory stores:
+- `settings.json` -- User-level settings
+- `CLAUDE.md` -- User-level project instructions
+- Auto-memory files
+- Session history
+
+### CLAUDE_CACHE_DIR
+
+Override the default cache directory.
+
+```bash
+export CLAUDE_CACHE_DIR="/custom/path/to/cache"
+```
+
+## Behavior Control
+
+### CLAUDE_CODE_DISABLE_TELEMETRY
+
+Disable anonymous usage telemetry.
+
+```bash
+export CLAUDE_CODE_DISABLE_TELEMETRY=1
+```
+
+When set to `1` or `true`, Claude Code will not send any anonymous usage statistics.
+
+### CLAUDE_CODE_DISABLE_MEMORY
+
+Disable auto-memory across sessions.
+
+```bash
+export CLAUDE_CODE_DISABLE_MEMORY=1
+```
+
+Claude will not store or retrieve learned facts between sessions.
+
+### CLAUDE_CODE_DISABLE_CLAUDE_MD
+
+Skip loading CLAUDE.md files at session start.
+
+```bash
+export CLAUDE_CODE_DISABLE_CLAUDE_MD=1
+```
+
+### CLAUDE_CODE_MAX_TURNS
+
+Set a default maximum number of agentic turns.
+
+```bash
+export CLAUDE_CODE_MAX_TURNS=20
+```
+
+## Network and Proxy
+
+### HTTP_PROXY / HTTPS_PROXY
+
+Route API traffic through a proxy server.
+
+```bash
+export HTTPS_PROXY="http://proxy.company.com:8080"
+export HTTP_PROXY="http://proxy.company.com:8080"
+```
+
+### NO_PROXY
+
+Comma-separated list of hosts that should bypass the proxy.
+
+```bash
+export NO_PROXY="localhost,127.0.0.1,.company.com"
+```
+
+### SSL_CERT_FILE
+
+Custom SSL certificate for environments with corporate certificate authorities.
+
+```bash
+export SSL_CERT_FILE="/path/to/corporate-ca-bundle.crt"
+```
+
+### NODE_TLS_REJECT_UNAUTHORIZED
+
+Disable TLS certificate verification (not recommended for production).
+
+```bash
+export NODE_TLS_REJECT_UNAUTHORIZED=0
+```
+
+## Editor and IDE
+
+### EDITOR
+
+The default text editor. Used when Claude needs to open files for manual editing.
+
+```bash
+export EDITOR="code --wait"  # VS Code
+export EDITOR="vim"          # Vim
+export EDITOR="nano"         # Nano
+```
+
+### TERM
+
+Terminal type. Claude Code uses this to determine color and formatting support.
+
+```bash
+export TERM="xterm-256color"
+```
+
+## Third-Party Integrations
+
+### GITHUB_TOKEN
+
+GitHub personal access token. Used by MCP GitHub server and `gh` CLI operations.
+
+```bash
+export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+### GH_TOKEN
+
+Alternative GitHub token variable (used by the `gh` CLI).
+
+```bash
+export GH_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+## CI/CD Variables
+
+These variables are commonly set in CI/CD environments:
+
+```bash
+# GitHub Actions
+export ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}"
+export CLAUDE_MODEL="claude-sonnet-4-20250514"
+export CLAUDE_CODE_MAX_TURNS=10
+export CLAUDE_CODE_DISABLE_TELEMETRY=1
+
+# GitLab CI
+export ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY"
+```
+
+## .env File Support
+
+Claude Code automatically loads `.env` files from the project root:
+
+```bash
+# .env (add to .gitignore!)
+ANTHROPIC_API_KEY=sk-ant-api03-xxxx
+CLAUDE_MODEL=claude-sonnet-4-20250514
+GITHUB_TOKEN=ghp_xxxx
+```
+
+Priority order:
+1. Shell environment variables (highest)
+2. CLI flags
+3. `.env` file in the current directory
+4. `.env` file in the home directory (lowest)
+
+## Quick Reference Table
+
+| Variable | Purpose | Example |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | API authentication | `sk-ant-api03-xxxx` |
+| `ANTHROPIC_BASE_URL` | Custom API endpoint | `https://proxy.co/anthropic` |
+| `CLAUDE_MODEL` | Default model | `claude-sonnet-4-20250514` |
+| `CLAUDE_CONFIG_DIR` | Config directory | `/custom/config` |
+| `CLAUDE_CODE_DISABLE_TELEMETRY` | Disable telemetry | `1` |
+| `CLAUDE_CODE_DISABLE_MEMORY` | Disable auto-memory | `1` |
+| `CLAUDE_CODE_MAX_TURNS` | Max agentic turns | `20` |
+| `HTTPS_PROXY` | Proxy server | `http://proxy:8080` |
+| `GITHUB_TOKEN` | GitHub access | `ghp_xxxx` |

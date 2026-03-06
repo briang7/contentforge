@@ -1,0 +1,162 @@
+---
+title: "Conversations"
+description: "Understand how Claude Code conversations work, manage context windows, and use /compact."
+section: "Core Concepts"
+order: 5
+version: "v2"
+---
+
+# Conversations
+
+Claude Code operates through conversational sessions where each message builds on previous context. Understanding how conversations work, how the context window is managed, and when to compact or reset is essential for effective use.
+
+## How Conversations Work
+
+When you start Claude Code with the `claude` command, you begin an interactive session. Each message you send, along with Claude's responses and all tool operations (file reads, edits, command outputs), accumulates in the conversation context.
+
+```bash
+# Start a new conversation
+claude
+
+# Continue the last conversation
+claude --continue
+
+# Resume and pick a specific conversation
+claude --resume
+```
+
+Within a session, Claude remembers everything discussed. You can build on previous requests:
+
+```
+> Read the User model in src/models/user.ts
+
+> Now add an email validation method to it
+
+> Write tests for the method we just added
+```
+
+Each of these prompts benefits from the accumulated context of the prior turns.
+
+## The Context Window
+
+Claude models have a finite context window (the maximum amount of text they can process at once). Claude Code's context includes:
+
+- **System prompt** and configuration
+- **CLAUDE.md** contents (project and user level)
+- **Your messages** and Claude's responses
+- **Tool inputs and outputs** (file contents, command results, search results)
+
+As your conversation grows, older content may be summarized or truncated to fit within the window. You will see a context usage indicator in the Claude Code interface showing how much of the window is consumed.
+
+### Context Window Indicators
+
+Claude Code displays context usage to help you manage long sessions:
+
+```
+Context: ████████░░░░ 65% used
+```
+
+When context usage gets high (above 80%), you may notice:
+- Slower responses as the model processes more text
+- Earlier parts of the conversation may become less accessible
+- Tool outputs from early in the session may be summarized
+
+## The /compact Command
+
+When your context window fills up, use the `/compact` slash command to summarize the conversation and free up space:
+
+```
+> /compact
+```
+
+Claude will:
+1. Summarize the full conversation into a concise overview
+2. Preserve key decisions, file changes, and important context
+3. Reset the conversation with the summary as the new starting point
+
+You can also provide a focus topic:
+
+```
+> /compact focus on the authentication changes we made
+```
+
+This tells Claude to prioritize retaining context about authentication while being more aggressive about summarizing other topics.
+
+### When to Use /compact
+
+- When the context indicator shows 70%+ usage
+- When Claude starts "forgetting" earlier parts of the conversation
+- When switching to a different area of the codebase within the same session
+- After completing a major task before starting the next one
+
+## Continuing and Resuming
+
+Claude Code stores conversation history locally, allowing you to pick up where you left off:
+
+```bash
+# Continue the most recent conversation
+claude --continue
+# or
+claude -c
+
+# Resume with a conversation picker
+claude --resume
+# or
+claude -r
+```
+
+When continuing, Claude loads the previous conversation history and you can keep working as if you never left. This is useful when you:
+
+- Close your terminal accidentally
+- Want to resume work the next day
+- Need to switch between multiple tasks
+
+## Starting Fresh
+
+Sometimes a clean slate is better than a cluttered context:
+
+```bash
+# Start a brand new conversation (default behavior)
+claude
+
+# Clear current conversation within a session
+> /clear
+```
+
+Start fresh when:
+- Switching to an entirely unrelated task
+- The conversation has become confused or contradictory
+- You want to approach a problem from a different angle
+
+## Multi-Turn Best Practices
+
+### Be Incremental
+Break large tasks into steps. Instead of one massive prompt, guide Claude through the work:
+
+```
+> First, read the existing API routes and summarize the patterns
+
+> Now create a new route for /api/users following those patterns
+
+> Add input validation using the same library the other routes use
+
+> Write integration tests matching the existing test style
+```
+
+### Provide Feedback
+If Claude's output is not quite right, correct it:
+
+```
+> That's close, but use a switch statement instead of if/else chains
+
+> Good, but the error messages should follow our i18n format
+```
+
+### Reference Prior Context
+You can refer back to earlier work in the conversation:
+
+```
+> Apply the same refactoring pattern we used on UserService to OrderService
+```
+
+Claude retains awareness of what was done earlier and can replicate patterns.

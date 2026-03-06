@@ -1,0 +1,284 @@
+---
+title: "CLI Options Reference"
+description: "Complete reference of all Claude Code CLI flags, options, and arguments."
+section: "Reference"
+order: 16
+version: "v2"
+---
+
+# CLI Options Reference
+
+This page provides a comprehensive reference for all Claude Code command-line flags and options. Use `claude --help` at any time to see the latest options.
+
+## Basic Usage
+
+```bash
+claude [options] [prompt]
+```
+
+If no prompt is provided, Claude Code starts an interactive REPL session. If a prompt is given as an argument, it runs in non-interactive (print) mode.
+
+## Session Options
+
+### `--continue`, `-c`
+
+Continue the most recent conversation.
+
+```bash
+claude --continue
+claude -c
+claude -c "Now add tests for the changes we made"
+```
+
+### `--resume`, `-r`
+
+Resume a previous conversation with an interactive picker.
+
+```bash
+claude --resume
+claude -r
+```
+
+### `--print`, `-p`
+
+Run in non-interactive print mode. Send a single prompt, output the response, and exit.
+
+```bash
+claude -p "What does this project do?"
+claude --print "List all exported functions in src/index.ts"
+```
+
+### `--max-turns`
+
+Limit the number of agentic turns (tool-use cycles) Claude can take.
+
+```bash
+claude --max-turns 10 -p "Refactor the auth module"
+```
+
+Default: no limit in interactive mode, 10 in non-interactive mode.
+
+### `--system-prompt`
+
+Override the default system prompt for this session.
+
+```bash
+claude --system-prompt "You are a Python expert. Only suggest Python solutions."
+```
+
+### `--append-system-prompt`
+
+Append text to the default system prompt instead of replacing it.
+
+```bash
+claude --append-system-prompt "Always include type annotations."
+```
+
+## Model Options
+
+### `--model`
+
+Specify which Claude model to use.
+
+```bash
+claude --model claude-opus-4-20250514
+claude --model claude-sonnet-4-20250514
+```
+
+## Output Options
+
+### `--output-format`
+
+Control the output format in print mode.
+
+```bash
+# Human-readable text (default)
+claude -p "Explain this code" --output-format text
+
+# JSON output for programmatic parsing
+claude -p "List all functions" --output-format json
+
+# Streaming JSON
+claude -p "Analyze this file" --output-format stream-json
+```
+
+| Format | Description |
+|---|---|
+| `text` | Plain text output (default) |
+| `json` | Complete JSON response after generation finishes |
+| `stream-json` | Newline-delimited JSON objects streamed as generated |
+
+### `--stream`
+
+Enable streaming output (responses print as they generate).
+
+```bash
+claude -p "Write a long explanation" --stream
+```
+
+### `--verbose`
+
+Enable verbose output with additional debug information.
+
+```bash
+claude --verbose
+```
+
+## Permission Options
+
+### `--dangerously-skip-permissions`
+
+Bypass all permission prompts. Required for CI/CD automation.
+
+```bash
+claude --dangerously-skip-permissions -p "Run all tests"
+```
+
+**Warning**: Only use in controlled, automated environments. Never with untrusted input.
+
+### `--allowlist-file`
+
+Load additional permission allowlist rules from a file.
+
+```bash
+claude --allowlist-file ./ci-permissions.json
+```
+
+## Configuration Options
+
+### `--config-dir`
+
+Use a custom configuration directory instead of `~/.claude`.
+
+```bash
+claude --config-dir /path/to/custom/config
+```
+
+### `--no-claude-md`
+
+Skip loading CLAUDE.md files for this session.
+
+```bash
+claude --no-claude-md
+```
+
+### `--no-memory`
+
+Disable auto-memory for this session.
+
+```bash
+claude --no-memory
+```
+
+## Input Options
+
+### `--stdin`
+
+Read input from stdin. Useful for piping data to Claude.
+
+```bash
+cat error.log | claude --stdin -p "What went wrong?"
+git diff | claude --stdin -p "Write a commit message"
+```
+
+Note: In many cases, stdin piping works automatically without this flag.
+
+### `--file`
+
+Include a specific file's contents as context.
+
+```bash
+claude --file src/schema.ts -p "Generate a migration based on this schema"
+```
+
+## Help and Version
+
+### `--help`, `-h`
+
+Display the help message with all available options.
+
+```bash
+claude --help
+```
+
+### `--version`, `-v`
+
+Display the installed Claude Code version.
+
+```bash
+claude --version
+```
+
+## Subcommands
+
+### `claude sessions`
+
+Manage conversation sessions.
+
+```bash
+# List recent sessions
+claude sessions list
+
+# Show details of a specific session
+claude sessions view <session-id>
+```
+
+### `claude config`
+
+View and modify configuration.
+
+```bash
+# Show current config
+claude config show
+
+# Set a config value
+claude config set model claude-opus-4-20250514
+```
+
+### `claude mcp`
+
+Manage MCP servers.
+
+```bash
+# List configured MCP servers
+claude mcp list
+
+# Add a new MCP server
+claude mcp add <name> --command <cmd> --args <args>
+
+# Remove an MCP server
+claude mcp remove <name>
+```
+
+## Common Combinations
+
+```bash
+# Quick code review
+cat src/api.ts | claude -p "Review for bugs" --output-format json
+
+# Automated testing with limited turns
+claude --dangerously-skip-permissions --max-turns 20 \
+  -p "Run tests, fix failures, repeat until all pass"
+
+# Continue conversation with a different model
+claude -c --model claude-opus-4-20250514
+
+# Non-interactive with streaming output
+claude -p "Explain the auth flow" --stream
+
+# CI/CD pipeline usage
+claude --dangerously-skip-permissions \
+  --max-turns 5 \
+  --output-format json \
+  -p "Analyze code quality and report issues"
+```
+
+## Exit Codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Success |
+| `1` | General error |
+| `2` | Invalid arguments |
+| `3` | Authentication failure |
+| `4` | API error (rate limit, server error) |

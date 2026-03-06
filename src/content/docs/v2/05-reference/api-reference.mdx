@@ -1,0 +1,323 @@
+---
+title: "API and SDK Reference"
+description: "Reference for the Claude Code SDK, programmatic usage, and extension APIs."
+section: "Reference"
+order: 18
+version: "v2"
+---
+
+# API and SDK Reference
+
+Claude Code can be used programmatically through its SDK, enabling you to integrate agentic coding capabilities into your own tools, scripts, and applications. This page covers the SDK interface, programmatic invocation, and extension APIs.
+
+## SDK Installation
+
+The Claude Code SDK is included in the main package:
+
+```bash
+npm install @anthropic-ai/claude-code
+```
+
+## Programmatic Usage
+
+### Basic Invocation
+
+Import and invoke Claude Code from your Node.js scripts:
+
+```typescript
+import { claude } from "@anthropic-ai/claude-code";
+
+const result = await claude({
+  prompt: "Explain the architecture of this project",
+  workingDirectory: "/path/to/project",
+});
+
+console.log(result.text);
+```
+
+### With Options
+
+```typescript
+import { claude } from "@anthropic-ai/claude-code";
+
+const result = await claude({
+  prompt: "Fix all TypeScript errors in this project",
+  workingDirectory: "/path/to/project",
+  model: "claude-sonnet-4-20250514",
+  maxTurns: 10,
+  systemPrompt: "You are a TypeScript expert.",
+  dangerouslySkipPermissions: true,
+  outputFormat: "json",
+});
+
+// Access structured results
+console.log(result.text);       // Response text
+console.log(result.exitCode);   // 0 for success
+console.log(result.toolUses);   // Array of tool invocations
+```
+
+### Streaming Responses
+
+```typescript
+import { claude } from "@anthropic-ai/claude-code";
+
+const stream = claude({
+  prompt: "Write a comprehensive README for this project",
+  workingDirectory: "/path/to/project",
+  stream: true,
+});
+
+for await (const event of stream) {
+  if (event.type === "text") {
+    process.stdout.write(event.text);
+  } else if (event.type === "tool_use") {
+    console.log(`Tool: ${event.tool} - ${event.description}`);
+  }
+}
+```
+
+## SDK Options
+
+### ClaudeOptions Interface
+
+```typescript
+interface ClaudeOptions {
+  /** The prompt to send to Claude */
+  prompt: string;
+
+  /** Working directory for file operations and commands */
+  workingDirectory?: string;
+
+  /** Claude model to use */
+  model?: "claude-sonnet-4-20250514" | "claude-opus-4-20250514";
+
+  /** Maximum number of agentic turns */
+  maxTurns?: number;
+
+  /** Custom system prompt (replaces default) */
+  systemPrompt?: string;
+
+  /** Append to default system prompt */
+  appendSystemPrompt?: string;
+
+  /** Skip all permission prompts */
+  dangerouslySkipPermissions?: boolean;
+
+  /** Output format */
+  outputFormat?: "text" | "json" | "stream-json";
+
+  /** Enable streaming mode */
+  stream?: boolean;
+
+  /** Additional permission allowlist entries */
+  allowList?: string[];
+
+  /** Environment variables to pass to tool executions */
+  env?: Record<string, string>;
+
+  /** Abort signal for cancellation */
+  abortSignal?: AbortSignal;
+}
+```
+
+### ClaudeResult Interface
+
+```typescript
+interface ClaudeResult {
+  /** The text response from Claude */
+  text: string;
+
+  /** Exit code (0 = success) */
+  exitCode: number;
+
+  /** Array of tool invocations made during the session */
+  toolUses: ToolUse[];
+
+  /** Total tokens consumed */
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+  };
+
+  /** Session identifier for continuation */
+  sessionId: string;
+}
+
+interface ToolUse {
+  tool: string;
+  input: Record<string, unknown>;
+  output: string;
+  duration: number;
+}
+```
+
+## Common SDK Patterns
+
+### Automated Code Review
+
+```typescript
+import { claude } from "@anthropic-ai/claude-code";
+import { execSync } from "child_process";
+
+async function reviewPR(prNumber: number): Promise<string> {
+  const diff = execSync(`gh pr diff ${prNumber}`).toString();
+
+  const result = await claude({
+    prompt: `Review this pull request diff for bugs, security issues,
+             and style problems:\n\n${diff}`,
+    workingDirectory: process.cwd(),
+    maxTurns: 5,
+    dangerouslySkipPermissions: true,
+  });
+
+  return result.text;
+}
+
+const review = await reviewPR(142);
+console.log(review);
+```
+
+### Batch File Processing
+
+```typescript
+import { claude } from "@anthropic-ai/claude-code";
+import { glob } from "glob";
+
+const files = await glob("src/**/*.ts");
+
+for (const file of files) {
+  const result = await claude({
+    prompt: `Add JSDoc comments to all exported functions in ${file}`,
+    workingDirectory: process.cwd(),
+    maxTurns: 3,
+    dangerouslySkipPermissions: true,
+    allowList: ["Read", "Edit"],
+  });
+
+  console.log(`Processed ${file}: ${result.exitCode === 0 ? "OK" : "FAILED"}`);
+}
+```
+
+### Cancellation with AbortSignal
+
+```typescript
+import { claude } from "@anthropic-ai/claude-code";
+
+const controller = new AbortController();
+
+// Cancel after 30 seconds
+setTimeout(() => controller.abort(), 30_000);
+
+try {
+  const result = await claude({
+    prompt: "Refactor the entire auth module",
+    workingDirectory: process.cwd(),
+    abortSignal: controller.signal,
+  });
+  console.log(result.text);
+} catch (error) {
+  if (error.name === "AbortError") {
+    console.log("Operation cancelled");
+  }
+}
+```
+
+## Subprocess Invocation
+
+You can also invoke Claude Code as a subprocess for language-agnostic integration:
+
+```python
+# Python example
+import subprocess
+import json
+
+result = subprocess.run(
+    ["claude", "-p", "List all API endpoints", "--output-format", "json"],
+    capture_output=True,
+    text=True,
+    cwd="/path/to/project"
+)
+
+data = json.loads(result.stdout)
+print(data)
+```
+
+```go
+// Go example
+package main
+
+import (
+    "encoding/json"
+    "os/exec"
+    "fmt"
+)
+
+func main() {
+    cmd := exec.Command("claude", "-p", "List all API endpoints",
+        "--output-format", "json")
+    cmd.Dir = "/path/to/project"
+
+    output, err := cmd.Output()
+    if err != nil {
+        panic(err)
+    }
+
+    var result map[string]interface{}
+    json.Unmarshal(output, &result)
+    fmt.Println(result)
+}
+```
+
+## MCP Server API
+
+When building MCP servers to extend Claude Code, you use the MCP SDK:
+
+```typescript
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+
+const server = new McpServer({
+  name: "my-server",
+  version: "1.0.0",
+});
+
+// Register a tool
+server.tool("tool_name", "Description", { param: z.string() },
+  async ({ param }) => ({
+    content: [{ type: "text", text: `Result: ${param}` }],
+  })
+);
+
+// Register a resource
+server.resource("resource://my-data", "My Data", async () => ({
+  contents: [{ uri: "resource://my-data", text: "data here" }],
+}));
+
+const transport = new StdioServerTransport();
+await server.connect(transport);
+```
+
+See the [MCP Servers](/docs/v2/03-features/mcp-servers) and [Custom Tools](/docs/v2/03-features/custom-tools) pages for detailed MCP development guides.
+
+## Rate Limits and Error Handling
+
+```typescript
+import { claude } from "@anthropic-ai/claude-code";
+
+try {
+  const result = await claude({
+    prompt: "Analyze this codebase",
+    workingDirectory: process.cwd(),
+  });
+  console.log(result.text);
+} catch (error) {
+  if (error.code === "rate_limit_exceeded") {
+    console.log("Rate limited. Retry after:", error.retryAfter);
+  } else if (error.code === "authentication_error") {
+    console.log("Invalid API key");
+  } else {
+    console.error("Unexpected error:", error.message);
+  }
+}
+```

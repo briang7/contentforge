@@ -1,0 +1,175 @@
+---
+title: "Getting Started with Claude Code CLI"
+description: "A complete beginner's guide to installing Claude Code CLI, authenticating, and running your first commands across macOS, Linux, and Windows."
+pubDate: 2026-01-10
+category: getting-started
+tags: ["installation", "setup", "cli", "beginner"]
+author: brian-garcia
+featured: false
+series:
+  name: "Claude Code Fundamentals"
+  order: 1
+---
+
+Claude Code is Anthropic's official command-line interface that brings Claude directly into your terminal and development workflow. Instead of switching between your editor and a browser-based chat, you can ask Claude to read your codebase, edit files, run commands, and reason about your project -- all from the command line. This guide walks you through installation, authentication, and your first productive session.
+
+## Prerequisites
+
+Before installing Claude Code, make sure you have:
+
+- **Node.js 18 or later** installed (check with `node --version`)
+- A terminal application (Terminal on macOS, any shell on Linux, Git Bash or WSL on Windows)
+- An Anthropic API key or a Claude Pro/Max subscription
+
+## Installation
+
+Claude Code is distributed as an npm package. Install it globally so the `claude` command is available everywhere:
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+Verify the installation:
+
+```bash
+claude --version
+```
+
+You should see a version number printed to the console. If you get a "command not found" error, make sure your global npm bin directory is on your PATH.
+
+### Platform-Specific Notes
+
+**macOS / Linux:** Installation is straightforward. If you use `nvm` to manage Node versions, remember that global installs are scoped to the active Node version.
+
+**Windows:** Claude Code works best under Windows Subsystem for Linux (WSL) or Git Bash. If you run it in PowerShell or cmd.exe directly, most features work, but some shell operations may behave differently. WSL is the recommended approach for the smoothest experience.
+
+## Authentication
+
+The first time you run `claude`, you will be prompted to authenticate. There are two paths:
+
+### Option 1: Anthropic API Key
+
+If you have an API key from the Anthropic Console, you can set it as an environment variable:
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-api03-..."
+```
+
+You can add this to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) so it persists across sessions. Then simply run:
+
+```bash
+claude
+```
+
+Claude Code will detect the key and skip the login prompt.
+
+### Option 2: Interactive Login
+
+If you have a Claude Pro or Max subscription, just run `claude` without setting an API key. The CLI will open a browser window for you to log in with your Anthropic account. After authorizing, the session token is stored locally and you will not need to log in again until it expires.
+
+## Your First Session
+
+Once authenticated, running `claude` with no arguments starts an interactive REPL session:
+
+```bash
+claude
+```
+
+You will see a prompt where you can type natural language requests. Try something simple:
+
+```
+> What files are in this directory?
+```
+
+Claude will use its built-in tools to list files and describe what it finds. You can also start a session with an initial prompt:
+
+```bash
+claude "explain the structure of this project"
+```
+
+This is useful for quick one-off questions without entering the interactive mode.
+
+### Asking Questions About Your Code
+
+Navigate to a project directory and start Claude Code there. It automatically has access to the files in your working directory:
+
+```bash
+cd ~/projects/my-app
+claude
+```
+
+Now you can ask contextual questions:
+
+```
+> How does the authentication middleware work in this project?
+> Find all API routes that don't have error handling
+> What dependencies does this project use and are any outdated?
+```
+
+Claude reads the relevant files, follows imports, and gives you answers grounded in your actual codebase.
+
+### Making Changes
+
+Claude Code is not just a reader -- it can edit files too. When you ask it to make a change, it will show you a diff and ask for confirmation before writing:
+
+```
+> Add input validation to the /api/users POST endpoint
+> Refactor the database connection to use a connection pool
+> Write unit tests for the utils/formatting.ts module
+```
+
+Each time, Claude proposes the edits, you review them, and approve or reject.
+
+## The CLAUDE.md File
+
+One of the most important features for teams is the `CLAUDE.md` file. This is a markdown file you place in your project root that gives Claude persistent context about your codebase. Think of it as a README specifically for Claude.
+
+You can generate a starter file with:
+
+```bash
+claude /init
+```
+
+This analyzes your project and creates a `CLAUDE.md` with information about your tech stack, project structure, build commands, and coding conventions. Here is an example of what it might contain:
+
+```markdown
+# CLAUDE.md
+
+## Build & Development Commands
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm test` - Run test suite
+
+## Tech Stack
+- Next.js 15 with App Router
+- TypeScript in strict mode
+- Tailwind CSS for styling
+- PostgreSQL with Prisma ORM
+
+## Architecture
+- App directory uses file-system routing
+- Server Components by default
+- API routes in app/api/
+```
+
+Claude reads this file at the start of every session, so it immediately understands your project conventions, preferred patterns, and build commands without you having to repeat yourself. You can also place `CLAUDE.md` files in subdirectories for context specific to those areas of the codebase.
+
+## Essential Commands to Know
+
+Here are a few commands to get you productive quickly:
+
+| Command | Description |
+|---------|------------|
+| `claude` | Start an interactive session |
+| `claude "prompt"` | One-shot question or task |
+| `claude /init` | Generate a CLAUDE.md file |
+| `claude /help` | Show available commands |
+| `claude /cost` | Show token usage and cost |
+| `claude /clear` | Clear conversation history |
+| `claude /compact` | Summarize and compress the conversation |
+
+## What's Next
+
+With Claude Code installed and your first session under your belt, you are ready to explore more advanced features. In the next post in this series, we will dive into hooks -- a powerful way to automate actions before and after Claude uses its tools, like auto-formatting files after edits or blocking dangerous commands.
+
+Claude Code is at its best when it understands your project deeply. Invest a few minutes in your `CLAUDE.md` file and you will be surprised how much more effective every session becomes.

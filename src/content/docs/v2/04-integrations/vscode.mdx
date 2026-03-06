@@ -1,0 +1,154 @@
+---
+title: "VS Code Integration"
+description: "Use Claude Code directly in Visual Studio Code with the official extension."
+section: "Integrations"
+order: 13
+version: "v2"
+---
+
+# VS Code Integration
+
+Claude Code integrates with Visual Studio Code through an official extension, bringing the full power of the CLI into your editor. You get the same agentic coding capabilities -- file editing, command execution, codebase search -- with the added convenience of editor context like selections, open files, and diagnostics.
+
+## Installation
+
+### From the VS Code Marketplace
+
+1. Open VS Code
+2. Go to the Extensions panel (`Ctrl+Shift+X` / `Cmd+Shift+X`)
+3. Search for "Claude Code"
+4. Click **Install**
+
+### From the Command Line
+
+```bash
+code --install-extension anthropic.claude-code
+```
+
+### Prerequisites
+
+- **VS Code** 1.85 or later
+- **Claude Code CLI** must be installed (`npm install -g @anthropic-ai/claude-code`)
+- A valid Anthropic API key configured (see [Installation](/docs/v2/01-getting-started/installation))
+
+## Getting Started
+
+After installation, open the Claude Code panel:
+
+- **Keyboard shortcut**: `Ctrl+Shift+P` / `Cmd+Shift+P`, then type "Claude Code"
+- **Activity bar**: Click the Claude Code icon in the left sidebar
+- **Shortcut**: `Ctrl+L` / `Cmd+L` to open the chat panel
+
+The Claude Code panel opens an interactive chat where you can type requests just like in the terminal CLI.
+
+## Key Features
+
+### Editor Context Awareness
+
+Claude Code in VS Code automatically knows about:
+
+- **Active file**: The file currently open in the editor
+- **Selection**: Any text you have highlighted
+- **Open files**: All tabs currently open
+- **Diagnostics**: Errors and warnings from your language server
+- **Terminal output**: Recent terminal output
+
+### Selection-Based Interactions
+
+Select code in the editor, then ask Claude about it:
+
+```
+# Select a function in the editor, then:
+> Explain what this selected code does
+
+> Refactor this to use async/await instead of promises
+
+> Add JSDoc comments to this function
+```
+
+The selected code is automatically included as context.
+
+### Inline Diff View
+
+When Claude edits files, VS Code shows a rich inline diff so you can see exactly what changed:
+
+- Green highlights for additions
+- Red highlights for deletions
+- Accept/reject buttons for each change
+
+### Terminal Integration
+
+Claude Code can access and interact with your VS Code integrated terminal:
+
+```
+> Run the test suite and fix any failing tests
+
+> Start the dev server and check for compilation errors
+```
+
+Commands execute in your VS Code terminal, and Claude can read the output.
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+L` / `Cmd+L` | Open Claude Code panel |
+| `Ctrl+I` / `Cmd+I` | Inline edit mode (edit selected code) |
+| `Ctrl+Shift+P` | Command palette (search "Claude Code") |
+| `Escape` | Cancel current generation |
+
+### Customizing Shortcuts
+
+Open **Keyboard Shortcuts** (`Ctrl+K Ctrl+S`) and search for "Claude Code" to rebind any shortcut.
+
+## Inline Edit Mode
+
+Press `Ctrl+I` / `Cmd+I` with code selected to enter inline edit mode. Type your instruction and Claude edits the selected code in place:
+
+```
+# Select a React component, press Ctrl+I:
+> Convert to use React.memo with a custom comparison function
+
+# Select a SQL query, press Ctrl+I:
+> Add pagination with LIMIT and OFFSET parameters
+```
+
+The edit appears as an inline diff that you can accept or reject.
+
+## Configuration
+
+### Extension Settings
+
+Open VS Code settings (`Ctrl+,`) and search for "Claude Code":
+
+| Setting | Description | Default |
+|---|---|---|
+| `claudeCode.apiKey` | Anthropic API key (or use env var) | None |
+| `claudeCode.model` | Default model to use | `claude-sonnet-4-20250514` |
+| `claudeCode.theme` | Panel theme (auto, light, dark) | `auto` |
+
+### Using CLAUDE.md with VS Code
+
+Your project's CLAUDE.md files work the same way in VS Code as they do in the terminal. Claude reads them automatically when you open a project.
+
+## Multi-Root Workspaces
+
+If you use multi-root workspaces, Claude Code scopes to the workspace folder of the active file. Each workspace folder can have its own CLAUDE.md and `.claude/settings.json`.
+
+## Troubleshooting
+
+| Issue | Solution |
+|---|---|
+| Panel not appearing | Ensure the extension is installed and reload VS Code |
+| "CLI not found" error | Install Claude Code CLI globally via npm |
+| Authentication error | Check your API key in settings or environment |
+| Slow responses | Check your network connection and model selection |
+| Extension conflicts | Disable other AI extensions that may conflict |
+
+### Logs
+
+View Claude Code extension logs for debugging:
+
+1. Open the Output panel (`Ctrl+Shift+U`)
+2. Select "Claude Code" from the dropdown
+3. Review log entries for errors or connection issues

@@ -1,0 +1,136 @@
+---
+title: "IDE Integrations: VS Code and JetBrains Setup"
+description: "Set up Claude Code in VS Code and JetBrains IDEs with terminal integration, keyboard shortcuts, and workflow tips for maximum productivity."
+pubDate: 2026-02-15
+category: integrations
+tags: ["vscode", "jetbrains", "ide", "integrations"]
+author: brian-garcia
+featured: false
+---
+
+Claude Code is a terminal-first tool, but that does not mean you have to leave your favorite IDE behind. Whether you use VS Code, WebStorm, IntelliJ, or any JetBrains product, integrating Claude Code into your existing editor workflow is straightforward and dramatically improves your development speed.
+
+## VS Code Extension Setup
+
+The official Claude Code VS Code extension brings the full power of the CLI directly into your editor. Install it from the VS Code marketplace or from the command line:
+
+```bash
+code --install-extension anthropic.claude-code
+```
+
+Once installed, you will see a Claude icon in the activity bar. Click it to open the Claude Code panel, which functions identically to the terminal-based CLI but with deeper editor integration.
+
+### Key VS Code Features
+
+The extension hooks into several VS Code APIs to provide a seamless experience. When Claude Code edits files, the changes appear in real time in your open editors. You can review diffs inline before accepting them, just as you would with any Git change.
+
+One of the most useful features is automatic context. When you open the Claude Code panel and type a prompt, the extension automatically includes your currently open file, your cursor position, and any selected text as context. This means you can highlight a function, open Claude Code, and say "refactor this to use async/await" without needing to copy-paste anything.
+
+```json
+// settings.json - recommended VS Code settings for Claude Code
+{
+  "claude-code.terminalProfile": "integrated",
+  "claude-code.autoApprove": ["read", "list"],
+  "claude-code.theme": "auto"
+}
+```
+
+### Terminal Integration in VS Code
+
+If you prefer the raw CLI experience, VS Code's integrated terminal works perfectly with Claude Code. Open a terminal panel with `` Ctrl+` `` and run `claude` as you normally would. The advantage here is that file paths Claude Code references are clickable, jumping you directly to the relevant file and line.
+
+You can also configure VS Code to use Claude Code as a terminal profile:
+
+```json
+// settings.json
+{
+  "terminal.integrated.profiles.windows": {
+    "Claude Code": {
+      "path": "cmd.exe",
+      "args": ["/k", "claude"]
+    }
+  }
+}
+```
+
+On macOS or Linux, set the path to your shell and adjust accordingly:
+
+```json
+{
+  "terminal.integrated.profiles.linux": {
+    "Claude Code": {
+      "path": "/bin/bash",
+      "args": ["-c", "claude"]
+    }
+  }
+}
+```
+
+## JetBrains Plugin Setup
+
+JetBrains IDEs including IntelliJ IDEA, WebStorm, PyCharm, and GoLand all support Claude Code through a dedicated plugin. Install it from the JetBrains Marketplace:
+
+1. Open **Settings** (Ctrl+Alt+S on Windows/Linux, Cmd+, on macOS)
+2. Navigate to **Plugins > Marketplace**
+3. Search for "Claude Code"
+4. Click **Install** and restart the IDE
+
+Alternatively, install from the command line if you have the JetBrains Toolbox CLI configured:
+
+```bash
+# JetBrains Toolbox CLI
+idea installPlugins anthropic.claude-code
+```
+
+### JetBrains Terminal Integration
+
+JetBrains IDEs have excellent built-in terminal support. Open the terminal tab (Alt+F12) and run Claude Code directly. The plugin adds a dedicated tool window that provides a richer interface with file diff previews and one-click accept/reject for changes.
+
+A particularly powerful JetBrains feature is the ability to send code selections to Claude Code. Right-click any selected code and choose **Claude Code > Send to Claude** from the context menu. This opens the Claude Code panel with your selection pre-loaded as context.
+
+## Keyboard Shortcuts
+
+Efficient keyboard shortcuts are essential for a smooth workflow. Here are the recommended bindings for both editors.
+
+### VS Code Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+Shift+A` | Open Claude Code panel |
+| `Ctrl+Shift+L` | Send selection to Claude Code |
+| `Ctrl+Shift+K` | Accept all pending changes |
+| `Ctrl+Shift+J` | Reject all pending changes |
+
+You can customize these in VS Code's keyboard shortcuts editor (Ctrl+K Ctrl+S) by searching for "Claude Code."
+
+### JetBrains Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Alt+C` | Open Claude Code tool window |
+| `Alt+Shift+C` | Send selection to Claude Code |
+| `Alt+Enter` | Accept suggestion (in diff view) |
+
+Configure these under **Settings > Keymap** by searching for "Claude."
+
+## Workflow Tips
+
+Regardless of which IDE you use, a few patterns will help you get the most from the integration.
+
+**Use the terminal for complex tasks.** The IDE extensions are great for quick edits and questions, but for multi-file refactoring or project scaffolding, the full terminal experience gives you more visibility into what Claude Code is doing.
+
+**Keep CLAUDE.md in your project root.** Both the VS Code extension and JetBrains plugin automatically detect and use your project's CLAUDE.md file for context. This ensures Claude Code understands your project structure, conventions, and tech stack every time you open the panel.
+
+**Leverage split terminals.** Run your dev server in one terminal pane and Claude Code in another. When Claude makes changes, your dev server hot-reloads immediately, and you can see the results without switching windows.
+
+```bash
+# Terminal 1: Dev server
+npm run dev
+
+# Terminal 2: Claude Code
+claude
+```
+
+**Use the diff review workflow.** Both editors show diffs before applying changes. Get in the habit of reviewing these diffs carefully. You can accept individual hunks rather than entire files, giving you fine-grained control over what Claude Code modifies.
+
+The IDE integrations transform Claude Code from a standalone tool into a natural extension of your development environment. Pick the setup that matches your workflow, configure your shortcuts, and you will find yourself reaching for Claude Code as instinctively as you reach for your editor's built-in features.

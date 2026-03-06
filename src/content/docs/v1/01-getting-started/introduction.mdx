@@ -1,0 +1,71 @@
+---
+title: "Introduction to Claude Code (v1)"
+description: "Overview of Claude Code v1, the original terminal-based AI coding assistant."
+section: "Getting Started"
+order: 1
+version: "v1"
+---
+
+# Introduction to Claude Code (v1)
+
+> **Note**: This is the documentation for Claude Code v1, which is no longer actively maintained. For the latest features and improvements, see the [v2 documentation](/docs/v2/01-getting-started/introduction).
+
+Claude Code v1 was the original release of Anthropic's terminal-based AI coding assistant. It introduced the core concept of an agentic coding tool that operates directly in your development environment, reading and writing files, executing commands, and understanding your project context through natural language conversation.
+
+## What Claude Code v1 Offered
+
+Claude Code v1 provided a foundational set of capabilities:
+
+- **Interactive terminal REPL** for conversational coding sessions
+- **File read and write** operations within your project directory
+- **Shell command execution** with manual approval for each command
+- **Codebase search** using basic grep and file listing
+- **Git integration** for status, diff, commit, and log operations
+- **Single-shot mode** via the `-p` flag for quick queries
+
+```bash
+# Starting a v1 session
+claude
+
+# Single-shot query in v1
+claude -p "What does this function do?"
+```
+
+## Key Differences from v2
+
+| Feature | v1 | v2 |
+|---|---|---|
+| Permission system | Basic approve/deny per action | Granular allowlists, deny lists, settings files |
+| Context management | Manual file reading | CLAUDE.md, auto-memory, smart context |
+| MCP support | Not available | Full MCP server integration |
+| Hooks | Not available | PreToolUse, PostToolUse, Notification, Stop |
+| IDE integration | Terminal only | VS Code, JetBrains, terminal |
+| Slash commands | Limited (`/help`, `/clear`) | Full set including `/compact`, `/commit`, `/pr` |
+| Output formats | Text only | Text, JSON, streaming JSON |
+| Tool set | Basic file and bash tools | Extended with web search, notebooks, worktrees |
+
+## Migration to v2
+
+If you are still using Claude Code v1, upgrading is straightforward:
+
+```bash
+# Update to the latest version
+npm update -g @anthropic-ai/claude-code
+```
+
+All v1 workflows continue to work in v2. The upgrade adds new capabilities without breaking existing usage patterns. Your conversation history and any local configuration are preserved.
+
+### New Setup Steps for v2
+
+After upgrading, consider:
+
+1. **Creating a CLAUDE.md** file in your project root for persistent context
+2. **Configuring permissions** in `.claude/settings.json` for smoother workflows
+3. **Exploring slash commands** like `/compact` and `/commit` for productivity
+4. **Setting up MCP servers** for database, GitHub, or custom tool integrations
+
+## v1 End of Support
+
+Claude Code v1 reached end of support with the release of v2. While the v1 CLI will continue to function, no further updates, bug fixes, or security patches will be provided for v1 releases. All users are encouraged to upgrade to v2.
+
+For upgrade assistance, see the [v2 Installation guide](/docs/v2/01-getting-started/installation).
